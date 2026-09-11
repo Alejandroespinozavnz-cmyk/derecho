@@ -7,7 +7,9 @@ import { AppShell } from "@/components/app-shell";
 import { ConnectorBanner } from "@/components/connector-banner";
 import { FilePreview } from "@/components/file-preview";
 import { FileRow } from "@/components/file-row";
+import { LocalFilePreview } from "@/components/local-file-preview";
 import { PageHeader, Panel } from "@/components/page";
+import { UploadButton, UploadList } from "@/components/upload-files";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { listDriveFolder } from "@/lib/drive.functions";
 import { getSubject, type CatalogFile } from "@/lib/subjects";
 import { PROGRAM } from "@/lib/program";
-import { topicKey, useStudyStore } from "@/lib/store";
+import { topicKey, useStudyStore, type UploadedFile } from "@/lib/store";
 
 export const Route = createFileRoute("/materias_/$slug")({
   validateSearch: (s: Record<string, unknown>): { folder?: string } => {
@@ -77,6 +79,7 @@ function SubjectPage() {
   const program = PROGRAM[slug];
 
   const [preview, setPreview] = useState<CatalogFile | null>(null);
+  const [local, setLocal] = useState<UploadedFile | null>(null);
   const Icon = subject.icon;
 
   const openFolder = (id: string) => {
@@ -97,15 +100,10 @@ function SubjectPage() {
         Todas las materias
       </Link>
       <PageHeader
-        kicker={program ? `${program.code} · ${program.period}` : subject.initials}
         title={subject.name}
-        description={
-          program
-            ? `${subject.fullName} · ${program.weeklyHours} h/sem · ${program.credits} UC`
-            : subject.fullName
-        }
         actions={
           <>
+            <UploadButton subjectSlug={slug} />
             <Button asChild>
               <Link to="/practica" search={{ materia: slug }}>
                 <Dices className="size-4" />
@@ -144,7 +142,7 @@ function SubjectPage() {
       />
 
       <div className="mb-6 flex items-center gap-4">
-        <span className="flex size-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <span className="flex size-12 items-center justify-center rounded-sm border border-border text-fg">
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -185,6 +183,10 @@ function SubjectPage() {
         </TabsList>
 
         <TabsContent value="archivos" className="mt-4 space-y-4">
+          <Panel>
+            <h2 className="mb-3 text-lg font-semibold">Tus archivos</h2>
+            <UploadList onOpen={setLocal} subjectSlug={slug} />
+          </Panel>
           {exams.length > 0 ? (
             <Panel>
               <div className="mb-3 flex items-center gap-2">
@@ -340,6 +342,7 @@ function SubjectPage() {
       </Tabs>
 
       <FilePreview file={preview} onClose={() => setPreview(null)} />
+      <LocalFilePreview file={local} onClose={() => setLocal(null)} />
     </AppShell>
   );
 }

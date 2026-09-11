@@ -1,4 +1,4 @@
--- Folio 4 — pegar en el editor SQL de tu proyecto y darle Run
+-- Cátedra — pegar en el editor SQL de tu proyecto y darle Run
 create table if not exists folio_settings (
   id text primary key,
   password_hash text not null,

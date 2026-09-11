@@ -1,26 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import {
-  ArrowRight,
-  CalendarDays,
-  Clock,
-  Dices,
   GraduationCap,
   MessageSquareText,
   NotebookPen,
   Timer,
 } from "lucide-react";
+import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, Panel } from "@/components/page";
+import { BrandMark } from "@/components/brand-mark";
+import { LocalFilePreview } from "@/components/local-file-preview";
+import { UploadButton } from "@/components/upload-files";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { countFilled, todayDayName } from "@/lib/schedule";
-import { YEAR } from "@/lib/program";
-import { SUBJECTS, getSubject, allCatalogFiles } from "@/lib/subjects";
-import { topicKey, useStudyStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { todayDayName } from "@/lib/schedule";
+import { SUBJECTS, getSubject } from "@/lib/subjects";
+import { topicKey, useStudyStore, type UploadedFile } from "@/lib/store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -32,284 +27,235 @@ function weekMinutes(sessions: { minutes: number; at: string }[]) {
 }
 
 function Home() {
-  const reviewed = useStudyStore((s) => s.reviewed);
   const topics = useStudyStore((s) => s.topics);
   const exams = useStudyStore((s) => s.exams);
   const schedule = useStudyStore((s) => s.schedule);
   const slots = useStudyStore((s) => s.slots);
-  const notes = useStudyStore((s) => s.notes);
   const sessions = useStudyStore((s) => s.sessions);
   const pages = useStudyStore((s) => s.pages);
+  const uploads = useStudyStore((s) => s.uploads);
+  const [openFile, setOpenFile] = useState<UploadedFile | null>(null);
 
-  const files = allCatalogFiles();
-  const reviewedCount = files.filter((f) => reviewed[f.id]).length;
   const upcoming = exams
     .filter((e) => !e.done && e.date)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 4);
-  const undated = exams.filter((e) => !e.done && !e.date).length;
+  const undated = exams.filter((e) => !e.done && !e.date);
   const today = todayDayName();
-  const filled = countFilled(schedule);
   const todaySlots = today
     ? slots.flatMap((slot) => {
         const slug = schedule[today]?.[slot.id];
         const subject = slug ? getSubject(slug) : undefined;
-        return subject ? [{ slot: `${slot.start} – ${slot.end}`, subject }] : [];
+        return subject ? [{ slot: `${slot.start}–${slot.end}`, subject }] : [];
       })
     : [];
-
-  const nowLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
   const focusMin = weekMinutes(sessions);
   const pageCount = pages.filter((p) => p.body.trim()).length;
 
   return (
     <AppShell>
-      <PageHeader
-        kicker={nowLabel}
-        title="Tu mesa de estudio"
-        description={`${YEAR.subjectCount} materias · armá el horario, los parciales y jugá cuando te aburras.`}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline">
-              <Link to="/horario">
-                Horario
-                <CalendarDays className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link to="/practica" search={{}}>
-                Jugar
-                <Dices className="size-4" />
-              </Link>
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Materias" value={String(YEAR.subjectCount)} />
-        <Stat label="Bloques cargados" value={String(filled)} />
-        <Stat
-          label="Leídos"
-          value={`${reviewedCount}/${files.filter((f) => !f.isFolder).length}`}
-        />
-        <Stat label="Foco 7 días" value={`${focusMin} min`} />
-      </div>
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <ToolLink
-          to="/cuaderno"
-          icon={NotebookPen}
-          title="Cuaderno"
-          hint={pageCount ? `${pageCount} hoja${pageCount === 1 ? "" : "s"} con texto` : "Nube: iPhone y computadora"}
-        />
-        <ToolLink
-          to="/enfoque"
-          icon={Timer}
-          title="Enfoque"
-          hint="Pomodoro, métodos y transcribir audio"
-        />
-        <ToolLink
-          to="/tutor"
-          icon={MessageSquareText}
-          title="Tutor"
-          hint="Gemini · programa UCAT 2025-2026"
-        />
-      </div>
+      <header className="mb-8 flex items-end justify-between gap-3">
+        <div>
+          <h1>
+            <BrandMark size="lg" />
+            <span className="sr-only">IUS</span>
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            {focusMin} min esta semana · {pageCount} hoja{pageCount === 1 ? "" : "s"}
+          </p>
+        </div>
+        <UploadButton />
+      </header>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-xl">Materias</h2>
-            <Link
-              to="/materias"
-              className="inline-flex items-center gap-1 text-sm text-muted hover:text-fg"
-            >
-              Ver todas <ArrowRight className="size-3.5" />
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SUBJECTS.map((s) => {
-              const doneTopics = s.topics.filter(
-                (t) => topics[topicKey(s.slug, t)],
-              ).length;
-              const pct = Math.round(
-                (doneTopics / Math.max(s.topics.length, 1)) * 100,
-              );
-              const Icon = s.icon;
-              return (
-                <Link
-                  key={s.slug}
-                  to="/materias/$slug"
-                  params={{ slug: s.slug }}
-                  search={{}}
-                  className="rounded-lg border border-border bg-bg/40 p-4 transition-colors hover:bg-bg-warm"
-                >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary">
-                      <Icon className="size-4" />
-                    </span>
-                    <span className="font-mono text-xs tracking-widest text-subtle">
-                      {s.initials}
-                    </span>
-                  </div>
-                  <p className="font-medium">{s.name}</p>
-                  <p className="mt-0.5 line-clamp-2 text-sm text-muted">
-                    {s.hint}
-                  </p>
-                  <Progress value={pct} className="mt-3" />
-                  <p className="mt-1.5 text-xs tabular-nums text-subtle">
-                    {doneTopics}/{s.topics.length} temas
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        </Panel>
-
-        <div className="flex flex-col gap-6">
-          <Panel>
-            <div className="mb-3 flex items-center gap-2">
-              <GraduationCap className="size-4 text-primary" />
-              <h2 className="font-display text-xl">Próximos exámenes</h2>
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted">Hoy</h2>
+              <Link to="/horario" className="text-sm text-muted hover:text-fg">
+                Horario
+              </Link>
             </div>
-            {upcoming.length === 0 ? (
-              <p className="text-sm text-muted">
-                {undated
-                  ? `${undated} examen${undated === 1 ? "" : "es"} sin fecha. Poneles día en Exámenes.`
-                  : "Aún no hay fechas. Ponle día a tus parciales en Exámenes."}
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {upcoming.map((e) => {
-                  const sub = getSubject(e.subjectSlug);
-                  const days = differenceInCalendarDays(
-                    parseISO(e.date),
-                    new Date(),
-                  );
-                  return (
-                    <li
-                      key={e.id}
-                      className="flex items-start justify-between gap-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{e.title}</p>
-                        <p className="text-xs text-muted">{sub?.name}</p>
-                      </div>
-                      <Badge variant={days <= 7 ? "exam" : "paper"}>
-                        {days === 0
-                          ? "Hoy"
-                          : days === 1
-                            ? "Mañana"
-                            : days < 0
-                              ? "Pasó"
-                              : `${days} d`}
-                      </Badge>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <Button asChild variant="outline" className="mt-4 w-full">
-              <Link to="/examenes">Organizar exámenes</Link>
-            </Button>
-          </Panel>
-
-          <Panel>
-            <div className="mb-3 flex items-center gap-2">
-              <Clock className="size-4 text-primary" />
-              <h2 className="font-display text-xl">Hoy</h2>
-            </div>
-            {today && todaySlots.length > 0 ? (
-              <ul className="space-y-2">
+            {todaySlots.length > 0 ? (
+              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
                 {todaySlots.map((row) => (
-                  <li
-                    key={row.slot + row.subject.slug}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <span className="tabular-nums text-muted">{row.slot}</span>
+                  <li key={row.slot + row.subject.slug}>
                     <Link
                       to="/materias/$slug"
                       params={{ slug: row.subject.slug }}
                       search={{}}
-                      className="font-medium hover:underline"
+                      className="flex items-center justify-between gap-3 px-5 py-3.5"
                     >
-                      {row.subject.name}
+                      <span className="font-medium">{row.subject.name}</span>
+                      <span className="tabular-nums text-sm text-muted">
+                        {row.slot}
+                      </span>
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted">
-                {today
-                  ? "Nada para hoy. Editá el horario y poné tus materias y horas."
-                  : "Fin de semana — buen momento para el juego."}
+              <p className="rounded-2xl border border-border bg-surface px-5 py-4 text-sm text-muted">
+                Sin bloques hoy.
               </p>
             )}
-            <Button asChild variant="ghost" className="mt-3 w-full">
-              <Link to="/horario">Editar horario</Link>
-            </Button>
-          </Panel>
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted">Materias</h2>
+              <Link to="/materias" className="text-sm text-muted hover:text-fg">
+                Todas
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {SUBJECTS.map((s) => {
+                const done = s.topics.filter(
+                  (t) => topics[topicKey(s.slug, t)],
+                ).length;
+                const pct = Math.round(
+                  (done / Math.max(s.topics.length, 1)) * 100,
+                );
+                return (
+                  <Link
+                    key={s.slug}
+                    to="/materias/$slug"
+                    params={{ slug: s.slug }}
+                    search={{}}
+                    className="rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-bg-warm"
+                  >
+                    <span className="text-xs tracking-[0.18em] text-muted">
+                      {s.initials}
+                    </span>
+                    <span className="mt-2 block font-semibold">{s.name}</span>
+                    <Progress value={pct} className="mt-3" />
+                    <span className="mt-2 block text-xs tabular-nums text-subtle">
+                      {done}/{s.topics.length}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted">Exámenes</h2>
+              <Link to="/examenes" className="text-sm text-muted hover:text-fg">
+                Agenda
+              </Link>
+            </div>
+            <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+              {upcoming.length === 0 && undated.length === 0 ? (
+                <li className="px-5 py-4 text-sm text-muted">Nada cargado.</li>
+              ) : null}
+              {upcoming.map((e) => {
+                const sub = getSubject(e.subjectSlug);
+                const days = differenceInCalendarDays(
+                  parseISO(e.date),
+                  new Date(),
+                );
+                return (
+                  <li
+                    key={e.id}
+                    className="flex items-center justify-between gap-3 px-5 py-3.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{e.title}</p>
+                      <p className="text-xs text-muted">{sub?.name}</p>
+                    </div>
+                    <Badge variant={days <= 7 ? "exam" : "paper"}>
+                      {days === 0
+                        ? "Hoy"
+                        : days === 1
+                          ? "Mañana"
+                          : days < 0
+                            ? "Pasó"
+                            : `${days} d`}
+                    </Badge>
+                  </li>
+                );
+              })}
+              {upcoming.length === 0
+                ? undated.slice(0, 3).map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                    >
+                      <p className="truncate text-sm font-medium">{e.title}</p>
+                      <Badge variant="paper">Fecha</Badge>
+                    </li>
+                  ))
+                : null}
+            </ul>
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted">Archivos</h2>
+              <Link to="/biblioteca" className="text-sm text-muted hover:text-fg">
+                Ver
+              </Link>
+            </div>
+            {uploads.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-surface px-5 py-4 text-sm text-muted">
+                Subí guías, parciales o fotos de pizarra.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+                {uploads.slice(0, 4).map((f) => (
+                  <li key={f.id}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenFile(f)}
+                      className="w-full truncate px-5 py-3.5 text-left text-sm font-medium hover:bg-bg-warm"
+                    >
+                      {f.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <nav className="grid grid-cols-2 gap-2">
+            <Link
+              to="/cuaderno"
+              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+            >
+              <NotebookPen className="size-4" />
+              Cuaderno
+            </Link>
+            <Link
+              to="/tutor"
+              search={{}}
+              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+            >
+              <MessageSquareText className="size-4" />
+              Tutor
+            </Link>
+            <Link
+              to="/enfoque"
+              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+            >
+              <Timer className="size-4" />
+              Enfoque
+            </Link>
+            <Link
+              to="/examenes"
+              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+            >
+              <GraduationCap className="size-4" />
+              Exámenes
+            </Link>
+          </nav>
         </div>
       </div>
 
-      {Object.keys(notes).some((k) => notes[k]?.trim()) ? (
-        <Panel className="mt-6">
-          <h2 className="mb-3 font-display text-xl">Apuntes recientes</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SUBJECTS.filter((s) => notes[s.slug]?.trim()).map((s) => (
-              <Link
-                key={s.slug}
-                to="/materias/$slug"
-                params={{ slug: s.slug }}
-                search={{}}
-                className={cn(
-                  "rounded-lg border border-border p-4 text-sm text-muted hover:bg-bg-warm",
-                )}
-              >
-                <p className="mb-1 font-medium text-fg">{s.name}</p>
-                <p className="line-clamp-3">{notes[s.slug]}</p>
-              </Link>
-            ))}
-          </div>
-        </Panel>
-      ) : null}
+      <LocalFilePreview file={openFile} onClose={() => setOpenFile(null)} />
     </AppShell>
   );
 }
 
-function ToolLink({
-  to,
-  icon: Icon,
-  title,
-  hint,
-}: {
-  to: "/cuaderno" | "/enfoque" | "/tutor";
-  icon: typeof NotebookPen;
-  title: string;
-  hint: string;
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex items-start gap-3 rounded-xl border border-border bg-surface px-4 py-4 shadow-soft transition-colors hover:bg-bg-warm"
-    >
-      <span className="flex size-10 items-center justify-center rounded-md bg-primary/15 text-primary">
-        <Icon className="size-4" />
-      </span>
-      <span>
-        <span className="block font-medium">{title}</span>
-        <span className="mt-0.5 block text-sm text-muted">{hint}</span>
-      </span>
-    </Link>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface px-4 py-4 shadow-soft">
-      <p className="text-xs tracking-wide text-muted uppercase">{label}</p>
-      <p className="mt-1 font-display text-2xl tabular-nums">{value}</p>
-    </div>
-  );
-}

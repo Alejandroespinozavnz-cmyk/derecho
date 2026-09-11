@@ -2,25 +2,29 @@
 @import "tw-animate-css";
 
 @theme {
-  --color-bg: #0b1220;
-  --color-bg-warm: #151d2e;
-  --color-surface: #121a2a;
-  --color-surface-2: #0e1624;
-  --color-ink: #06080c;
-  --color-fg: #eef2f8;
-  --color-muted: #8b97ab;
-  --color-subtle: #66758a;
-  --color-primary: #7ea6ff;
-  --color-primary-fg: #0b1220;
-  --color-accent: #7ea6ff;
-  --color-accent-fg: #0b1220;
-  --color-border: color-mix(in oklab, #eef2f8 12%, transparent);
-  --color-border-strong: color-mix(in oklab, #eef2f8 22%, transparent);
-  --color-ring: #7ea6ff;
-  --color-danger: #f07167;
-  --color-ok: #5dcaa5;
+  --color-bg: #f4f4f5;
+  --color-bg-warm: #ececee;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafafa;
+  --color-ink: #111113;
+  --color-fg: #111113;
+  --color-muted: #5c5c64;
+  --color-subtle: #8a8a92;
+  --color-primary: #111113;
+  --color-primary-fg: #f4f4f5;
+  --color-accent: #111113;
+  --color-accent-fg: #f4f4f5;
+  --color-border: color-mix(in oklab, #111113 10%, transparent);
+  --color-border-strong: color-mix(in oklab, #111113 18%, transparent);
+  --color-ring: #111113;
+  --color-lock: #0c0c0e;
+  --color-lock-fg: #f3eee6;
+  --color-danger: #b42318;
+  --color-danger-fg: #fff;
+  --color-ok: #17663a;
+  --color-ok-fg: #fff;
 
-  --font-sans: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Outfit", "Segoe UI", system-ui, sans-serif;
   --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -33,16 +37,15 @@
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
-  --text-base: 1.0625rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.5rem;
-  --text-2xl: clamp(1.75rem, 1.2rem + 1.6vw, 2.35rem);
-  --text-3xl: clamp(2.15rem, 1.4rem + 2.4vw, 3.25rem);
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: clamp(1.5rem, 1.15rem + 1.2vw, 2rem);
+  --text-3xl: clamp(1.85rem, 1.3rem + 1.8vw, 2.6rem);
 
-  --shadow-soft: 0 1px 0 color-mix(in oklab, #eef2f8 4%, transparent),
-    0 18px 40px -24px color-mix(in oklab, #000 55%, transparent);
+  --shadow-soft: 0 1px 0 color-mix(in oklab, #111113 5%, transparent);
 
-  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --tracking-logo: 0.32em;
   --motion-quick: 150ms;
   --motion-fast: 250ms;
 }
@@ -51,7 +54,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html,
@@ -65,18 +68,14 @@
   body {
     font-family: var(--font-sans);
     line-height: 1.5;
-    background-image: radial-gradient(
-      1200px 600px at 10% -10%,
-      color-mix(in oklab, var(--color-primary) 14%, transparent),
-      transparent 55%
-    );
-    background-attachment: fixed;
+    background-color: var(--color-bg);
   }
 
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
+    font-weight: 600;
     text-wrap: balance;
     letter-spacing: -0.03em;
     line-height: 1.15;
@@ -92,13 +91,13 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--color-primary) 32%, transparent);
+    background: color-mix(in oklab, var(--color-fg) 14%, transparent);
   }
 
   input[type="date"],
   input[type="time"],
   select {
-    color-scheme: dark;
+    color-scheme: light;
   }
 }
 
@@ -113,6 +112,26 @@
     transform: scale(1);
   }
 }
+
+@keyframes phrase-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.clave-mask {
+  -webkit-text-security: disc;
+}
+
+.lock-phrase {
+  animation: phrase-in 500ms var(--ease-smooth-out) both;
+}
+
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Plus, Trash2 } from "lucide-react";
+import { Download, FileDown, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
+import { AudioTranscribe } from "@/components/audio-transcribe";
 import { PageHeader, Panel } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { downloadCuadernoPdf } from "@/lib/cuaderno-pdf";
 import { SUBJECTS } from "@/lib/subjects";
-import { exportStudyBackup, useStudyStore } from "@/lib/store";
+import { useStudyStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/cuaderno")({ component: CuadernoPage });
@@ -24,14 +27,40 @@ function CuadernoPage() {
     [pages, activeId],
   );
 
-  const downloadBackup = () => {
-    const blob = new Blob([exportStudyBackup()], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `folio-4-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const pdfHoja = () => {
+    if (!page) return;
+    downloadCuadernoPdf({
+      kind: "hoja",
+      pages,
+      audioNotes,
+      page,
+    });
+    toast.success("PDF de esta hoja.");
+  };
+
+  const pdfMateria = () => {
+    const slug = page?.subjectSlug ?? null;
+    downloadCuadernoPdf({
+      kind: "materia",
+      pages,
+      audioNotes,
+      page,
+      subjectSlug: slug,
+    });
+    toast.success(
+      slug
+        ? "PDF de la materia, con portada."
+        : "PDF de las hojas sin materia.",
+    );
+  };
+
+  const pdfTodo = () => {
+    downloadCuadernoPdf({
+      kind: "todo",
+      pages,
+      audioNotes,
+    });
+    toast.success("PDF de todo el cuaderno, materia por materia.");
   };
 
   const relatedAudio = audioNotes.filter(
@@ -41,18 +70,20 @@ function CuadernoPage() {
   return (
     <AppShell>
       <PageHeader
-        kicker="Nube"
         title="Cuaderno"
-        description="Se guarda solo en la nube: el iPhone y la computadora ven lo mismo. También podés bajar un respaldo."
         actions={
           <>
-            <Button variant="outline" onClick={downloadBackup}>
+            <Button variant="outline" onClick={pdfMateria}>
+              <FileDown className="size-4" />
+              PDF materia
+            </Button>
+            <Button variant="outline" onClick={pdfTodo}>
               <Download className="size-4" />
-              Respaldo
+              PDF todo
             </Button>
             <Button
               onClick={() => {
-                const id = addPage("Nueva hoja");
+                const id = addPage("Nueva hoja", page?.subjectSlug ?? null);
                 setActiveId(id);
               }}
             >
@@ -83,6 +114,9 @@ function CuadernoPage() {
                   </span>
                   <span className="text-xs text-subtle">
                     {new Date(p.updatedAt).toLocaleDateString("es-VE")}
+                    {p.subjectSlug
+                      ? ` · ${SUBJECTS.find((s) => s.slug === p.subjectSlug)?.name ?? ""}`
+                      : ""}
                   </span>
                 </button>
               </li>
@@ -92,18 +126,19 @@ function CuadernoPage() {
 
         {page ? (
           <Panel>
-            <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Input
                 value={page.title}
                 onChange={(e) => updatePage(page.id, { title: e.target.value })}
                 placeholder="Título"
+                className="sm:min-w-[12rem] sm:flex-1"
               />
               <select
                 value={page.subjectSlug ?? ""}
                 onChange={(e) =>
                   updatePage(page.id, { subjectSlug: e.target.value || null })
                 }
-                className="h-11 rounded-md border border-border bg-surface px-3 text-sm"
+                className="h-11 shrink-0 rounded-md border border-border bg-surface px-3 text-sm sm:w-48"
                 aria-label="Materia"
               >
                 <option value="">Sin materia</option>
@@ -113,10 +148,14 @@ function CuadernoPage() {
                   </option>
                 ))}
               </select>
+              <Button variant="outline" className="shrink-0" onClick={pdfHoja}>
+                <FileDown className="size-4" />
+                PDF hoja
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-11 text-subtle"
+                className="size-11 shrink-0 text-subtle"
                 disabled={pages.length <= 1}
                 onClick={() => {
                   removePage(page.id);
@@ -131,11 +170,24 @@ function CuadernoPage() {
               value={page.body}
               onChange={(e) => updatePage(page.id, { body: e.target.value })}
               placeholder="Apuntes, esquemas, artículos, lo que dijo el profesor…"
-              className="min-h-[28rem]"
+              className="min-h-[22rem]"
             />
             <p className="mt-2 text-xs text-subtle">
-              Guardado automático en este teléfono o computadora.
+              Guardado automático. El PDF lleva portada de la materia (UCAT, 4to, 2025-2026).
             </p>
+            <AudioTranscribe
+              subjectSlug={page.subjectSlug}
+              pageId={page.id}
+              onTranscript={(text) => {
+                const current = useStudyStore
+                  .getState()
+                  .pages.find((p) => p.id === page.id);
+                const body = current?.body ?? "";
+                updatePage(page.id, {
+                  body: `${body}${body ? "\n\n" : ""}— Transcripción —\n${text}`,
+                });
+              }}
+            />
             {relatedAudio.length > 0 ? (
               <div className="mt-6">
                 <h2 className="mb-2 font-display text-lg">Audios transcritos</h2>
@@ -146,21 +198,10 @@ function CuadernoPage() {
                       className="rounded-md border border-border bg-bg-warm p-3 text-sm"
                     >
                       <p className="mb-1 text-xs text-muted">
-                        {new Date(n.at).toLocaleString("es-VE")} · {n.durationSec}s
+                        {new Date(n.at).toLocaleString("es-VE")}
+                        {n.durationSec ? ` · ${n.durationSec}s` : ""}
                       </p>
                       <p className="whitespace-pre-wrap">{n.transcript}</p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="mt-2"
-                        onClick={() =>
-                          updatePage(page.id, {
-                            body: `${page.body}${page.body ? "\n\n" : ""}— Transcripción —\n${n.transcript}`,
-                          })
-                        }
-                      >
-                        Pegar en la hoja
-                      </Button>
                     </li>
                   ))}
                 </ul>

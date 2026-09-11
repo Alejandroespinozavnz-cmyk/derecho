@@ -30,13 +30,13 @@ export function SheetContent({
           side === "left" &&
             "inset-y-0 left-0 h-full w-full max-w-xs border-r border-border",
           side === "bottom" &&
-            "inset-x-0 bottom-0 max-h-[85vh] rounded-t-xl border-t border-border",
+            "inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl border-t border-border",
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute top-3 right-3 inline-flex size-11 items-center justify-center rounded-md text-muted hover:bg-bg-warm hover:text-fg">
+        <DialogPrimitive.Close className="absolute top-3 right-3 inline-flex size-11 items-center justify-center rounded-sm text-muted hover:bg-bg-warm hover:text-fg">
           <X className="size-4" />
           <span className="sr-only">Cerrar</span>
         </DialogPrimitive.Close>

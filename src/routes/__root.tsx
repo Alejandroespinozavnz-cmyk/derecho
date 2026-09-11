@@ -7,21 +7,19 @@ import {
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppProviders } from "@/components/providers";
+import { BRAND } from "@/lib/brand";
 import appCss from "../styles.css?url";
-
-const APP_NAME = "Folio 4";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: APP_NAME },
-      { name: "theme-color", content: "#0b1220" },
+      { title: BRAND.name },
+      { name: "theme-color", content: "#f4f4f5" },
       {
         name: "description",
-        content:
-          "Mesa de estudio de 4to año de Derecho: materias, horario editable, exámenes y juego de práctica.",
+        content: BRAND.description,
       },
     ],
     links: [
@@ -36,7 +34,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap",
       },
     ],
   }),

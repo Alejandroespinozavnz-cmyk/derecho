@@ -161,11 +161,7 @@ function PracticaPage() {
 
   return (
     <AppShell>
-      <PageHeader
-        kicker="Cuando te aburras"
-        title="Duelo jurídico"
-        description="Elegí la materia. Verdadero o falso, tres vidas, racha que suma puntos."
-      />
+      <PageHeader title="Duelo" />
 
       {phase === "lobby" ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_16rem]">
@@ -202,7 +198,7 @@ function PracticaPage() {
               className={cn(
                 "mt-4 flex h-11 w-full items-center justify-between rounded-md border px-3 text-sm",
                 timed
-                  ? "border-primary/40 bg-primary/10 text-fg"
+                  ? "border-fg bg-fg text-bg"
                   : "border-border bg-bg text-muted",
               )}
             >
@@ -370,9 +366,9 @@ function SubjectPick({
       onClick={onClick}
       disabled={count === 0}
       className={cn(
-        "rounded-xl border p-4 text-left transition-colors",
+        "rounded-lg border p-4 text-left transition-colors",
         active
-          ? "border-primary bg-primary/10"
+          ? "border-fg bg-fg text-bg"
           : "border-border bg-surface hover:bg-bg-warm",
         count === 0 && "opacity-40",
       )}
@@ -381,8 +377,10 @@ function SubjectPick({
         <p className="font-medium">{name}</p>
         {best ? <Badge variant="paper">Mejor {best}</Badge> : null}
       </div>
-      <p className="mt-1 line-clamp-2 text-sm text-muted">{hint}</p>
-      <p className="mt-2 text-xs tabular-nums text-subtle">
+      <p className={cn("mt-1 line-clamp-2 text-sm", active ? "text-bg/70" : "text-muted")}>
+        {hint}
+      </p>
+      <p className={cn("mt-2 text-xs tabular-nums", active ? "text-bg/60" : "text-subtle")}>
         {count} preguntas
       </p>
     </button>

@@ -19,7 +19,6 @@ import { changeOwnerPassword } from "@/lib/gate.functions";
 
 export function GuestCodePanel() {
   const [code, setCode] = useState<string | null>(null);
-  const [day, setDay] = useState<string | null>(null);
 
   useEffect(() => {
     const session = readSession();
@@ -27,7 +26,6 @@ export function GuestCodePanel() {
     const today = caracasDay();
     void guestCodeFor(today).then((raw) => {
       setCode(formatGuestCode(raw));
-      setDay(today);
     });
   }, []);
 
@@ -42,13 +40,10 @@ export function GuestCodePanel() {
   };
 
   return (
-    <div className="rounded-lg border border-border bg-bg-warm p-4">
-      <p className="text-sm text-muted">Clave de invitado de hoy</p>
-      <p className="mt-1 font-display text-3xl tracking-wide">
+    <div className="rounded-lg border border-border bg-bg p-4">
+      <p className="text-sm text-muted">Clave de hoy</p>
+      <p className="mt-1 text-3xl font-semibold tracking-wide">
         {code ?? "••••-••••"}
-      </p>
-      <p className="mt-1 text-xs text-subtle">
-        Hasta medianoche de Caracas{day ? ` (${day})` : ""}.
       </p>
       <Button variant="outline" className="mt-3" onClick={() => void copy()} disabled={!code}>
         <Copy className="size-4" />
@@ -80,7 +75,7 @@ export function CloudStatusCard() {
   };
 
   return (
-    <div className="rounded-lg border border-border bg-bg-warm p-4">
+    <div className="rounded-lg border border-border bg-bg p-4">
       <p className="flex items-center gap-2 font-medium">
         <Cloud className="size-4" />
         Nube

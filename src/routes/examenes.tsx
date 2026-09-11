@@ -45,9 +45,7 @@ function ExamsPage() {
   return (
     <AppShell>
       <PageHeader
-        kicker="Calendario"
         title="Exámenes"
-        description="Agenda los parciales de este año. Los documentos de 2020–2021 quedan como modelo de estudio."
         actions={
           <Button onClick={() => setOpen(true)}>
             <Plus className="size-4" />

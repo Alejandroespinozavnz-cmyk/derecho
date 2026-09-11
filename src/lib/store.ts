@@ -64,6 +64,15 @@ export type PomoState = {
   round: number;
 };
 
+export type UploadedFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  subjectSlug: string | null;
+  at: string;
+};
+
 type StudyState = {
   version: number;
   reviewed: Record<string, true>;
@@ -78,6 +87,7 @@ type StudyState = {
   pages: NotebookPage[];
   audioNotes: AudioNote[];
   tasks: Task[];
+  uploads: UploadedFile[];
   pomo: PomoState;
   toggleReviewed: (fileId: string) => void;
   toggleStarred: (fileId: string) => void;
@@ -100,6 +110,8 @@ type StudyState = {
   addTask: (title: string) => void;
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
+  addUpload: (file: Omit<UploadedFile, "id" | "at">) => string;
+  removeUpload: (id: string) => void;
   setPomo: (patch: Partial<PomoState>) => void;
 };
 
@@ -160,7 +172,7 @@ const SEED_EXAMS: Exam[] = [
   },
 ];
 
-const CURRENT_VERSION = 5;
+const CURRENT_VERSION = 6;
 
 const DEFAULT_POMO: PomoState = {
   mode: "idle",
@@ -197,6 +209,7 @@ export const useStudyStore = create<StudyState>()(
       pages: [newPage("Cuaderno general")],
       audioNotes: [],
       tasks: [],
+      uploads: [],
       pomo: DEFAULT_POMO,
       toggleReviewed: (fileId) =>
         set((s) => {
@@ -324,6 +337,18 @@ export const useStudyStore = create<StudyState>()(
         })),
       removeTask: (id) =>
         set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      addUpload: (file) => {
+        const id = uid("up");
+        set((s) => ({
+          uploads: [
+            { ...file, id, at: new Date().toISOString() },
+            ...s.uploads,
+          ].slice(0, 40),
+        }));
+        return id;
+      },
+      removeUpload: (id) =>
+        set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) })),
       setPomo: (patch) =>
         set((s) => ({ pomo: { ...s.pomo, ...patch } })),
     }),
@@ -356,6 +381,7 @@ export const useStudyStore = create<StudyState>()(
               : current.pages,
           audioNotes: Array.isArray(p.audioNotes) ? p.audioNotes : current.audioNotes,
           tasks: Array.isArray(p.tasks) ? p.tasks : current.tasks,
+          uploads: Array.isArray(p.uploads) ? p.uploads : current.uploads,
           pomo: p.pomo ? { ...DEFAULT_POMO, ...p.pomo, mode: "idle", endsAt: null } : DEFAULT_POMO,
         };
       },

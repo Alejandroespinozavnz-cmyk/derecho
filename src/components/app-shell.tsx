@@ -7,19 +7,25 @@ import {
   GraduationCap,
   LayoutGrid,
   Lock,
+  LogOut,
   MessageSquareText,
   MoreHorizontal,
   NotebookPen,
-  Scale,
   Timer,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { GuestCodePanel, ChangePasswordForm, CloudStatusCard } from "@/components/guest-code";
 import { ROOT_FOLDER_LINK } from "@/lib/subjects";
 import { useStudyStore } from "@/lib/store";
-import { clearSession, readSession } from "@/lib/gate";
+import {
+  idleExpired,
+  lockNow,
+  readSession,
+  touchActivity,
+} from "@/lib/gate";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -62,7 +68,7 @@ function PomoChip() {
   return (
     <Link
       to="/enfoque"
-      className="mb-3 flex h-11 items-center justify-between rounded-md bg-primary/15 px-3 text-sm font-medium"
+      className="mb-3 flex h-11 items-center justify-between rounded-sm bg-fg px-3 text-sm font-medium text-bg"
     >
       <span>{pomo.mode === "focus" ? "Foco" : "Descanso"}</span>
       <span className="font-mono tabular-nums">{formatMmSs(left)}</span>
@@ -83,11 +89,45 @@ function MobilePomoChip() {
   return (
     <Link
       to="/enfoque"
-      className="flex h-11 items-center rounded-md bg-primary/15 px-3 font-mono text-sm tabular-nums"
+      className="flex h-11 items-center rounded-sm bg-fg px-3 font-mono text-sm tabular-nums text-bg"
     >
       {formatMmSs(left)}
     </Link>
   );
+}
+
+function useIdleLock() {
+  useEffect(() => {
+    touchActivity();
+    let lastBump = Date.now();
+    const bump = () => {
+      const now = Date.now();
+      if (now - lastBump < 15_000) return;
+      lastBump = now;
+      if (readSession()) touchActivity();
+    };
+    const events: Array<keyof WindowEventMap> = [
+      "pointerdown",
+      "keydown",
+      "touchstart",
+      "scroll",
+    ];
+    for (const ev of events) window.addEventListener(ev, bump, { passive: true });
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      if (idleExpired()) lockNow();
+      else touchActivity();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    const id = window.setInterval(() => {
+      if (idleExpired() || !readSession()) lockNow();
+    }, 5_000);
+    return () => {
+      for (const ev of events) window.removeEventListener(ev, bump);
+      document.removeEventListener("visibilitychange", onVis);
+      window.clearInterval(id);
+    };
+  }, []);
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -95,6 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [lockOpen, setLockOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  useIdleLock();
 
   useEffect(() => {
     setIsOwner(readSession()?.role === "owner");
@@ -102,20 +143,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface-2/90 px-3 py-6 backdrop-blur md:flex">
-        <Link to="/" className="mb-8 flex items-center gap-2.5 px-2">
-          <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-fg">
-            <Scale className="size-4" />
-          </span>
-          <span>
-            <span className="block font-display text-lg leading-none tracking-tight">
-              Folio 4
-            </span>
-            <span className="text-xs text-muted">4to · Derecho</span>
-          </span>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-surface px-3 py-5 md:flex">
+        <Link to="/" className="mb-6 px-2">
+          <BrandMark size="lg" />
         </Link>
         <PomoChip />
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav className="flex flex-1 flex-col gap-0.5">
           {[...NAV, ...MORE].map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.to);
@@ -124,13 +157,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-150",
+                  "flex h-11 items-center gap-3 rounded-sm px-3 text-sm font-medium transition-colors duration-150",
                   active
-                    ? "bg-primary/15 text-fg"
-                    : "text-muted hover:bg-bg-warm hover:text-fg",
+                    ? "bg-bg text-fg"
+                    : "text-muted hover:bg-bg hover:text-fg",
                 )}
               >
-                <Icon className={cn("size-4", active && "text-primary")} />
+                <Icon className="size-4" />
                 {item.label}
               </Link>
             );
@@ -139,31 +172,45 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setLockOpen(true)}
-          className="mt-2 flex h-11 items-center gap-2 rounded-md px-3 text-sm text-muted hover:bg-bg-warm hover:text-fg"
+          className="mt-2 flex h-11 items-center gap-2 rounded-sm px-3 text-sm text-muted hover:bg-bg hover:text-fg"
         >
           <Lock className="size-4" />
-          Candado
+          Clave
+        </button>
+        <button
+          type="button"
+          onClick={() => lockNow()}
+          className="flex h-11 items-center gap-2 rounded-sm px-3 text-sm text-danger hover:bg-bg"
+        >
+          <LogOut className="size-4" />
+          Salir
         </button>
         <a
           href={ROOT_FOLDER_LINK}
           target="_blank"
           rel="noreferrer"
-          className="flex h-11 items-center gap-2 rounded-md px-3 text-sm text-muted hover:bg-bg-warm hover:text-fg"
+          className="flex h-11 items-center gap-2 rounded-sm px-3 text-sm text-muted hover:bg-bg hover:text-fg"
         >
           <FolderOpen className="size-4" />
-          Abrir Drive
+          Drive
         </a>
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-bg/80 px-4 py-3 backdrop-blur md:hidden">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-fg">
-            <Scale className="size-3.5" />
-          </span>
-          <span className="font-display text-lg tracking-tight">Folio 4</span>
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-bg/90 px-4 py-3 md:hidden">
+        <Link to="/" aria-label="IUS">
+          <BrandMark size="sm" />
         </Link>
         <div className="flex items-center gap-1">
           <MobilePomoChip />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11 text-danger"
+            onClick={() => lockNow()}
+            aria-label="Cerrar sesión"
+          >
+            <LogOut className="size-5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -176,13 +223,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="md:pl-60">
-        <div className="mx-auto max-w-5xl px-4 pt-6 pb-28 md:px-8 md:pt-10 md:pb-16">
+      <div className="md:pl-56">
+        <div className="mx-auto max-w-5xl px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-16">
           {children}
         </div>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.to);
@@ -191,8 +238,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
-                active ? "text-primary" : "text-muted",
+                "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium",
+                active ? "text-fg" : "text-muted",
               )}
             >
               <Icon className="size-5" />
@@ -204,10 +251,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           onClick={() => setMoreOpen(true)}
           className={cn(
-            "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
-            MORE.some((m) => isActive(pathname, m.to))
-              ? "text-primary"
-              : "text-muted",
+            "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-medium",
+            MORE.some((m) => isActive(pathname, m.to)) ? "text-fg" : "text-muted",
           )}
         >
           <MoreHorizontal className="size-5" />
@@ -226,7 +271,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={item.to}
                   to={item.to}
                   onClick={() => setMoreOpen(false)}
-                  className="flex h-12 items-center gap-3 rounded-md bg-bg-warm px-4 text-sm font-medium"
+                  className="flex h-12 items-center gap-3 rounded-sm bg-bg px-4 text-sm font-medium"
                 >
                   <Icon className="size-4" />
                   {item.label}
@@ -239,19 +284,27 @@ export function AppShell({ children }: { children: ReactNode }) {
                 setMoreOpen(false);
                 setLockOpen(true);
               }}
-              className="flex h-12 items-center gap-3 rounded-md px-4 text-sm text-muted"
+              className="flex h-12 items-center gap-3 rounded-sm px-4 text-sm text-muted"
             >
               <Lock className="size-4" />
-              Candado y clave de invitado
+              Clave
+            </button>
+            <button
+              type="button"
+              onClick={() => lockNow()}
+              className="flex h-12 items-center gap-3 rounded-sm px-4 text-sm text-danger"
+            >
+              <LogOut className="size-4" />
+              Salir
             </button>
             <a
               href={ROOT_FOLDER_LINK}
               target="_blank"
               rel="noreferrer"
-              className="flex h-12 items-center gap-3 rounded-md px-4 text-sm text-muted"
+              className="flex h-12 items-center gap-3 rounded-sm px-4 text-sm text-muted"
             >
               <FolderOpen className="size-4" />
-              Carpeta 4to año en Drive
+              Drive
             </a>
           </div>
         </SheetContent>
@@ -259,29 +312,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <Sheet open={lockOpen} onOpenChange={setLockOpen}>
         <SheetContent side="bottom" className="overflow-y-auto px-5 pt-6 pb-8">
-          <SheetTitle className="mb-4">Candado</SheetTitle>
+          <SheetTitle className="mb-4">Clave</SheetTitle>
           {isOwner ? (
             <>
-              <CloudStatusCard />
+              <GuestCodePanel />
               <div className="mt-4">
-                <GuestCodePanel />
+                <CloudStatusCard />
               </div>
               <ChangePasswordForm />
             </>
           ) : (
-            <p className="text-sm text-muted">
-              Entraste como invitado. La clave vence a medianoche.
-            </p>
+            <p className="text-sm text-muted">Invitado · vence a medianoche.</p>
           )}
           <Button
             variant="outline"
             className="mt-4 w-full"
-            onClick={() => {
-              clearSession();
-              window.location.reload();
-            }}
+            onClick={() => lockNow()}
           >
-            Cerrar sesión
+            Salir
           </Button>
         </SheetContent>
       </Sheet>

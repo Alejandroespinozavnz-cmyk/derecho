@@ -1,5 +1,6 @@
 const SESSION_KEY = "folio4-session-v2";
 const HASH_KEY = "folio4-pw-hash";
+const ACTIVITY_KEY = "folio4-last-activity";
 const LEGACY_KEYS = ["folio4-session", "folio4-owner-hash"];
 
 export const DEFAULT_PASSWORD = "Ale2006**";
@@ -8,6 +9,9 @@ export const DEFAULT_PASSWORD_HASH =
   "37101d1f664aa8859d980580c38141d3413988f15c049d36702d80081b26fdb0";
 
 const GATE_SECRET = "folio4-caracas-gate-v1";
+
+/** Close the lock after this much idle time. */
+export const IDLE_MS = 60 * 60 * 1000;
 
 export type GateRole = "owner" | "guest";
 
@@ -91,8 +95,11 @@ export async function guestCodeFor(day: string): Promise<string> {
 
 async function mintSession(role: GateRole, until: number): Promise<GateSession> {
   try {
-    return { role, until, token: await signToken(role, until) };
+    const session = { role, until, token: await signToken(role, until) };
+    touchActivity();
+    return session;
   } catch {
+    touchActivity();
     return { role, until, token: `${role}.${until}.local` };
   }
 }
@@ -140,7 +147,31 @@ export function writeLocalPasswordHash(hash: string) {
   writeStore(session, HASH_KEY, hash);
 }
 
+export function touchActivity() {
+  const value = String(Date.now());
+  const { local, session } = storage();
+  writeStore(local, ACTIVITY_KEY, value);
+  writeStore(session, ACTIVITY_KEY, value);
+}
+
+export function lastActivityAt(): number {
+  const { local, session } = storage();
+  const raw = readStore(session, ACTIVITY_KEY) ?? readStore(local, ACTIVITY_KEY);
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function idleExpired(): boolean {
+  const last = lastActivityAt();
+  if (!last) return false;
+  return Date.now() - last > IDLE_MS;
+}
+
 export function readSession(): GateSession | null {
+  if (idleExpired()) {
+    clearSession();
+    return null;
+  }
   if (memorySession && Date.now() <= memorySession.until) return memorySession;
   const { local, session } = storage();
   const raw = readStore(session, SESSION_KEY) ?? readStore(local, SESSION_KEY);
@@ -152,6 +183,7 @@ export function readSession(): GateSession | null {
       clearSession();
       return null;
     }
+    if (!lastActivityAt()) touchActivity();
     memorySession = parsed;
     return parsed;
   } catch {
@@ -175,6 +207,7 @@ export function openOwnerNow(): GateSession {
     token: `owner.${until}.local`,
   };
   writeSession(session);
+  touchActivity();
   return session;
 }
 
@@ -183,9 +216,20 @@ export function clearSession() {
   const { local, session } = storage();
   removeStore(session, SESSION_KEY);
   removeStore(local, SESSION_KEY);
+  removeStore(session, ACTIVITY_KEY);
+  removeStore(local, ACTIVITY_KEY);
   for (const key of LEGACY_KEYS) {
     removeStore(session, key);
     removeStore(local, key);
+  }
+}
+
+export function lockNow() {
+  clearSession();
+  try {
+    window.location.reload();
+  } catch {
+    /* ignore */
   }
 }
 
@@ -215,7 +259,9 @@ export async function unlockOwner(password: string): Promise<GateSession | null>
     const hash = await hashPassword(password);
     const local = readLocalPasswordHash();
     if (hash === DEFAULT_PASSWORD_HASH || (local != null && hash === local)) {
-      return mintSession("owner", ownerUntil());
+      const session = await mintSession("owner", ownerUntil());
+      writeSession(session);
+      return session;
     }
     const { fetchPasswordHash } = await import("./folio-cloud");
     const remote = await Promise.race([
@@ -226,10 +272,20 @@ export async function unlockOwner(password: string): Promise<GateSession | null>
     ]);
     if (!remote || hash !== remote) return null;
     writeLocalPasswordHash(remote);
-    return mintSession("owner", ownerUntil());
+    const session = await mintSession("owner", ownerUntil());
+    writeSession(session);
+    return session;
   } catch {
     return passwordLetsOwnerIn(password) ? openOwnerNow() : null;
   }
+}
+
+export async function unlockWithKey(raw: string): Promise<GateSession | null> {
+  const typed = cleanPassword(raw);
+  if (!typed) return null;
+  const owner = await unlockOwner(typed);
+  if (owner) return owner;
+  return unlockGuest(typed);
 }
 
 export async function unlockGuest(code: string): Promise<GateSession | null> {
@@ -237,7 +293,9 @@ export async function unlockGuest(code: string): Promise<GateSession | null> {
     const day = caracasDay();
     const expected = await guestCodeFor(day);
     if (normalizeGuestCode(code) !== expected) return null;
-    return mintSession("guest", endOfCaracasDayMs());
+    const session = await mintSession("guest", endOfCaracasDayMs());
+    writeSession(session);
+    return session;
   } catch {
     return null;
   }

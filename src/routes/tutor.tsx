@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUp, Loader2, Scale } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Panel } from "@/components/page";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { askTutor } from "@/lib/ai.functions";
-import { PROGRAM, TUTOR_STARTERS, YEAR } from "@/lib/program";
+import { PROGRAM, TUTOR_STARTERS } from "@/lib/program";
 import { SUBJECTS, getSubject } from "@/lib/subjects";
 import { cn } from "@/lib/utils";
 
@@ -123,12 +123,7 @@ function TutorPage() {
 
   return (
     <AppShell>
-      <PageHeader
-        kicker="Tutor"
-        title="Consultorio"
-        description={`Preguntá sobre el programa oficial de ${YEAR.label}. Responde con Gemini, temario UCAT ${YEAR.academicYear} y derecho venezolano.`}
-        actions={<Badge variant="paper">Gemini</Badge>}
-      />
+      <PageHeader title="Tutor" />
 
       <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
         {SUBJECTS.map((s) => {
@@ -158,8 +153,7 @@ function TutorPage() {
               <p className="font-mono text-xs tracking-widest text-subtle">
                 {program.code}
               </p>
-              <h2 className="mt-1 font-display text-xl">{subject.fullName}</h2>
-              <p className="mt-1 text-sm text-muted">{program.objective}</p>
+              <h2 className="mt-1 text-xl font-semibold">{subject.name}</h2>
             </div>
             <div className="flex gap-2">
               <Badge variant="outline">{program.weeklyHours} h/sem</Badge>
@@ -168,7 +162,7 @@ function TutorPage() {
           </div>
           <Button asChild variant="ghost" size="sm" className="mt-3 -ml-2">
             <Link to="/materias/$slug" params={{ slug }} search={{}}>
-              Ver carpeta y temario
+              Materia
             </Link>
           </Button>
         </Panel>
@@ -177,9 +171,6 @@ function TutorPage() {
       <div className="space-y-4">
         {messages.length === 0 && !busy ? (
           <div className="grid gap-2">
-            <p className="text-xs font-medium tracking-[0.16em] text-muted uppercase">
-              Empezá por acá
-            </p>
             {starters.map((prompt) => (
               <button
                 key={prompt}
@@ -206,10 +197,7 @@ function TutorPage() {
                 </div>
               ) : (
                 <div className="rounded-xl rounded-tl-sm border border-border bg-surface px-5 py-4 shadow-soft">
-                  <p className="mb-2 flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase">
-                    <Scale className="size-3.5 text-primary" />
-                    Tutor
-                  </p>
+            <p className="mb-2 text-xs font-medium text-muted">Tutor</p>
                   <TutorMarkdown text={m.content} />
                 </div>
               )}

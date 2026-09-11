@@ -1,12 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Mic, Pause, Play, Square, Upload } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Pause, Play, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Panel } from "@/components/page";
 import { Button } from "@/components/ui/button";
-import { transcribeAudio } from "@/lib/ai.functions";
-import { SUBJECTS } from "@/lib/subjects";
 import { useStudyStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -55,15 +53,8 @@ function formatMmSs(ms: number) {
 function EnfoquePage() {
   return (
     <AppShell>
-      <PageHeader
-        kicker="Método"
-        title="Enfoque"
-        description="Pomodoro, cómo estudiar Derecho, y grabá la clase para transcribirla."
-      />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <PomodoroCard />
-        <AudioCard />
-      </div>
+      <PageHeader title="Enfoque" />
+      <PomodoroCard />
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {METHODS.map((m) => (
           <Panel key={m.id}>
@@ -246,180 +237,4 @@ function beep() {
   } catch {
     /* ignore */
   }
-}
-
-function AudioCard() {
-  const addAudioNote = useStudyStore((s) => s.addAudioNote);
-  const addPage = useStudyStore((s) => s.addPage);
-  const updatePage = useStudyStore((s) => s.updatePage);
-  const audioNotes = useStudyStore((s) => s.audioNotes);
-  const [slug, setSlug] = useState(SUBJECTS[0]?.slug ?? "");
-  const [recording, setRecording] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const recRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<number | null>(null);
-  const secondsRef = useRef(0);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-      recRef.current?.stop();
-    };
-  }, []);
-
-  const startRec = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      rec.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-        void sendBlob(blob, rec.mimeType || "audio/webm", secondsRef.current);
-      };
-      rec.start();
-      recRef.current = rec;
-      setRecording(true);
-      secondsRef.current = 0;
-      setSeconds(0);
-      timerRef.current = window.setInterval(() => {
-        secondsRef.current += 1;
-        setSeconds(secondsRef.current);
-      }, 1000);
-    } catch {
-      toast.error("No pude usar el micrófono. Subí un audio grabado.");
-    }
-  };
-
-  const stopRec = () => {
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    recRef.current?.stop();
-    recRef.current = null;
-    setRecording(false);
-  };
-
-  const sendBlob = async (blob: Blob, mime: string, durationSec: number) => {
-    if (blob.size < 800) {
-      toast.error("El audio quedó vacío.");
-      return;
-    }
-    if (blob.size > 8_000_000) {
-      toast.error("Audio demasiado largo. Cortalo a unos 8 minutos.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const base64 = await blobToBase64(blob);
-      const result = await transcribeAudio({
-        data: { mimeType: mime.split(";")[0] || "audio/webm", base64 },
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      addAudioNote({
-        subjectSlug: slug || null,
-        pageId: null,
-        transcript: result.text,
-        durationSec,
-      });
-      const id = addPage(
-        `Audio ${new Date().toLocaleString("es-VE")}`,
-        slug || null,
-      );
-      updatePage(id, { body: result.text });
-      toast.success("Transcripción lista. También la guardé como hoja.");
-    } catch {
-      toast.error("Falló la transcripción.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onFile = async (file: File) => {
-    await sendBlob(file, file.type || "audio/mpeg", 0);
-  };
-
-  return (
-    <Panel>
-      <h2 className="font-display text-xl">Grabar y transcribir</h2>
-      <p className="mt-1 text-sm text-muted">
-        Grabá un fragmento de clase o subí un audio. Gemini lo pasa a texto y
-        queda en el cuaderno.
-      </p>
-      <select
-        value={slug}
-        onChange={(e) => setSlug(e.target.value)}
-        className="mt-4 h-11 w-full rounded-md border border-border bg-bg px-3 text-sm"
-        aria-label="Materia del audio"
-      >
-        {SUBJECTS.map((s) => (
-          <option key={s.slug} value={s.slug}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {recording ? (
-          <Button variant="danger" onClick={stopRec}>
-            <Square className="size-4" />
-            Parar · {seconds}s
-          </Button>
-        ) : (
-          <Button onClick={() => void startRec()} disabled={busy}>
-            <Mic className="size-4" />
-            Grabar
-          </Button>
-        )}
-        <Button variant="outline" asChild disabled={busy}>
-          <label className="cursor-pointer">
-            <Upload className="size-4" />
-            Subir audio
-            <input
-              type="file"
-              accept="audio/*,video/webm"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void onFile(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
-        </Button>
-      </div>
-      {busy ? <p className="mt-3 text-sm text-muted">Transcribiendo…</p> : null}
-      <ul className="mt-4 space-y-2">
-        {audioNotes.slice(0, 4).map((n) => (
-          <li key={n.id} className="rounded-md bg-bg-warm p-3 text-sm">
-            <p className="line-clamp-3">{n.transcript}</p>
-          </li>
-        ))}
-      </ul>
-      <Button asChild variant="ghost" className="mt-3 w-full">
-        <Link to="/cuaderno">Ver en el cuaderno</Link>
-      </Button>
-    </Panel>
-  );
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? "");
-      const comma = text.indexOf(",");
-      resolve(comma >= 0 ? text.slice(comma + 1) : text);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
 }

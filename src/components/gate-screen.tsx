@@ -1,19 +1,60 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Eye, EyeOff, Lock, Scale } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { IusSeal } from "@/components/brand-mark";
 import {
   clearSession,
-  openOwnerNow,
-  passwordLetsOwnerIn,
   readSession,
   sweepLegacyLock,
-  unlockGuest,
+  unlockWithKey,
   writeSession,
   type GateRole,
   type GateSession,
 } from "@/lib/gate";
+
+
+const PHRASES = [
+  {
+    la: "Pacta sunt servanda.",
+    es: "Los pactos deben cumplirse.",
+  },
+  {
+    la: "Iura novit curia.",
+    es: "El juez conoce el derecho.",
+  },
+  {
+    la: "Da mihi factum, dabo tibi ius.",
+    es: "Dame los hechos, te daré el derecho.",
+  },
+  {
+    la: "Actori incumbit probatio.",
+    es: "La carga de la prueba recae en quien demanda.",
+  },
+  {
+    la: "Nemo dat quod non habet.",
+    es: "Nadie da lo que no tiene.",
+  },
+  {
+    la: "In dubio pro reo.",
+    es: "En la duda, a favor del reo.",
+  },
+  {
+    la: "Res inter alios acta.",
+    es: "Lo pactado entre unos no obliga a terceros.",
+  },
+  {
+    la: "Nullum crimen sine lege.",
+    es: "No hay delito sin ley.",
+  },
+  {
+    la: "Nemo judex in causa sua.",
+    es: "Nadie puede ser juez en su propia causa.",
+  },
+  {
+    la: "Ignorantia juris non excusat.",
+    es: "El desconocimiento de la ley no exime de cumplirla.",
+  },
+];
 
 export function GateGuard({ children }: { children: ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -37,136 +78,110 @@ export function GateGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function FloatingPhrase() {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setIndex((n) => (n + 1) % PHRASES.length);
+    }, 7000);
+    return () => window.clearInterval(id);
+  }, []);
+  const phrase = PHRASES[index];
+  return (
+    <div key={index} className="lock-phrase mt-8 max-w-sm">
+      <p className="text-sm italic text-lock-fg/80">{phrase.la}</p>
+      <p className="mt-1.5 text-xs text-lock-fg/50">{phrase.es}</p>
+    </div>
+  );
+}
+
 function LockScreen({ onUnlock }: { onUnlock: (session: GateSession) => void }) {
-  const [password, setPassword] = useState("");
+  const [clave, setClave] = useState("");
   const [show, setShow] = useState(false);
-  const [guest, setGuest] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"owner" | "guest">("owner");
 
-  const enterOwner = () => {
+  const enter = async () => {
     setError(null);
     const typed =
-      (document.getElementById("gate-pass") as HTMLInputElement | null)?.value ??
-      password;
-    if (!passwordLetsOwnerIn(typed)) {
-      setError("Contraseña incorrecta.");
+      (document.getElementById("gate-clave") as HTMLInputElement | null)?.value ??
+      clave;
+    if (!typed.trim()) {
+      setError("Escribí la clave.");
       return;
     }
-    onUnlock(openOwnerNow());
-  };
-
-  const enterGuest = async () => {
-    setError(null);
     setBusy(true);
     try {
-      const session = await unlockGuest(guest);
+      const session = await unlockWithKey(typed);
       if (!session) {
-        setError("Clave de invitado inválida o vencida.");
+        setError("Clave incorrecta.");
         return;
       }
       onUnlock(session);
     } catch {
-      setError("No pude validar la clave de invitado.");
+      setError("No pude validar la clave.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-4 text-fg">
-      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-soft">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex size-11 items-center justify-center rounded-md bg-primary text-primary-fg">
-            <Scale className="size-5" />
-          </span>
-          <div>
-            <p className="font-display text-xl">Folio 4</p>
-            <p className="text-sm text-muted">4to · Derecho</p>
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-lock px-5 text-lock-fg">
+      <img
+        src="/lock-bg.jpg"
+        alt=""
+        className="pointer-events-none absolute inset-0 size-full object-cover"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-lock/75" />
+      <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
+        <IusSeal className="size-36 text-lock-fg" />
+        <FloatingPhrase />
+        <form
+          className="mt-12 grid w-full gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void enter();
+          }}
+        >
+          <div className="relative">
+            <input
+              id="gate-clave"
+              name="password"
+              type={show ? "text" : "password"}
+              inputMode="text"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              autoFocus
+              placeholder="Clave"
+              aria-label="Clave"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              className="flex h-11 w-full rounded-sm border border-lock-fg/20 bg-lock-fg/10 px-3 pr-12 text-base text-lock-fg shadow-none placeholder:text-lock-fg/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lock-fg/40"
+            />
+            <button
+              type="button"
+              className="absolute top-0 right-0 z-20 flex size-11 items-center justify-center text-lock-fg/70 hover:text-lock-fg"
+              aria-label={show ? "Ocultar clave" : "Mostrar clave"}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShow((v) => !v);
+              }}
+            >
+              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
-        </div>
-
-        <div className="mb-4 grid grid-cols-2 gap-1 rounded-md bg-bg-warm p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setTab("owner");
-              setError(null);
-            }}
-            className={`h-10 rounded-sm text-sm font-medium ${tab === "owner" ? "bg-surface text-fg" : "text-muted"}`}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <Button
+            type="submit"
+            disabled={busy}
+            className="bg-lock-fg text-lock hover:opacity-90"
           >
-            Dueño
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTab("guest");
-              setError(null);
-            }}
-            className={`h-10 rounded-sm text-sm font-medium ${tab === "guest" ? "bg-surface text-fg" : "text-muted"}`}
-          >
-            Invitado
-          </button>
-        </div>
-
-        {tab === "owner" ? (
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="gate-pass">Contraseña</Label>
-              <div className="relative">
-                <Input
-                  id="gate-pass"
-                  name="password"
-                  type={show ? "text" : "password"}
-                  autoComplete="current-password"
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      enterOwner();
-                    }
-                  }}
-                  className="pr-12"
-                />
-                <button
-                  type="button"
-                  className="absolute top-0 right-0 flex size-11 items-center justify-center text-muted hover:text-fg"
-                  onClick={() => setShow((v) => !v)}
-                  aria-label={show ? "Ocultar clave" : "Mostrar clave"}
-                >
-                  {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-            {error ? <p className="text-sm text-danger">{error}</p> : null}
-            <Button type="button" onClick={enterOwner}>
-              <Lock className="size-4" />
-              Entrar
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="gate-guest">Clave del día</Label>
-              <Input
-                id="gate-guest"
-                name="guest"
-                value={guest}
-                onChange={(e) => setGuest(e.target.value.toUpperCase())}
-                placeholder="XXXX-XXXX"
-                autoCapitalize="characters"
-              />
-            </div>
-            {error ? <p className="text-sm text-danger">{error}</p> : null}
-            <Button type="button" disabled={busy} onClick={() => void enterGuest()}>
-              Entrar como invitado
-            </Button>
-          </div>
-        )}
+            {busy ? "…" : "Entrar"}
+          </Button>
+        </form>
       </div>
     </div>
   );
@@ -190,7 +205,6 @@ export function SignOutButton() {
         window.location.reload();
       }}
     >
-      <Lock className="size-4" />
       Cerrar sesión
     </Button>
   );

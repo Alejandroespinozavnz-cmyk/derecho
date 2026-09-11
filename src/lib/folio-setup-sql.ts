@@ -1,5 +1,5 @@
 /** Idempotent SQL for the owner's Supabase SQL editor. No secrets. */
-export const FOLIO_SUPABASE_SQL = `-- Folio 4 — pegar en el editor SQL de tu proyecto y darle Run
+export const FOLIO_SUPABASE_SQL = `-- IUS — pegar en el editor SQL de tu proyecto y darle Run
 create table if not exists folio_settings (
   id text primary key,
   password_hash text not null,

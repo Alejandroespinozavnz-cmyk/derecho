@@ -24,9 +24,7 @@ function HorarioPage() {
   return (
     <AppShell>
       <PageHeader
-        kicker="Este año"
-        title="Tu horario"
-        description="Vacío a propósito: el de 2020 no era el tuyo. Cambiá las horas y tocá cada celda para poner la materia."
+        title="Horario"
         actions={
           <>
             <Button variant="outline" onClick={addSlot}>
