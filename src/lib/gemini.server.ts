@@ -15,6 +15,13 @@ function apiKey(): string | undefined {
   return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim() || undefined;
 }
 
+function publicErr(msg: string): string {
+  if (/api\s*key|clave|unauthorized|forbidden|401|403|quota/i.test(msg)) {
+    return "El servicio de IA no está disponible.";
+  }
+  return msg;
+}
+
 type Part =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } };
@@ -28,7 +35,7 @@ export async function geminiGenerate(input: {
 }): Promise<{ ok: true; text: string } | { ok: false; error: string; status?: number }> {
   const key = apiKey();
   if (!key) {
-    return { ok: false, error: "Falta la clave de Gemini." };
+    return { ok: false, error: "El servicio de IA no está disponible." };
   }
 
   let lastStatus = 0;
@@ -60,7 +67,7 @@ export async function geminiGenerate(input: {
         candidates?: { content?: { parts?: { text?: string }[] } }[];
       };
       if (!res.ok) {
-        lastMsg = body.error?.message ?? `Gemini ${res.status}`;
+        lastMsg = publicErr(body.error?.message ?? `Gemini ${res.status}`);
         if (res.status === 404 || res.status === 503) continue;
         return { ok: false, error: lastMsg, status: res.status };
       }
@@ -79,7 +86,7 @@ export async function geminiGenerate(input: {
     }
   }
 
-  return { ok: false, error: lastMsg, status: lastStatus };
+  return { ok: false, error: publicErr(lastMsg), status: lastStatus };
 }
 
 export async function geminiTranscribe(input: {

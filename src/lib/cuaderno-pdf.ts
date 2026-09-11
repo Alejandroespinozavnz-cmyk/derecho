@@ -65,17 +65,15 @@ function drawIusSeal(doc: jsPDF, cx: number, cy: number, r: number, color: RGB) 
       cy + Math.sin(a) * r * 0.87,
     );
   }
-  const rw = r * 0.48;
+  const rw = r * 0.42;
   doc.setLineWidth(Math.max(0.16, r * 0.01));
   doc.line(cx - rw, cy - r * 0.22, cx + rw, cy - r * 0.22);
   doc.line(cx - rw, cy + r * 0.26, cx + rw, cy + r * 0.26);
   doc.setTextColor(...color);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(Math.max(10, r * 0.72));
+  doc.setFontSize(Math.max(9, r * 0.78));
   const baseline = cy + r * 0.14;
-  doc.text("I", cx - r * 0.32, baseline, { align: "center" });
-  doc.text("U", cx, baseline, { align: "center" });
-  doc.text("S", cx + r * 0.32, baseline, { align: "center" });
+  doc.text("IUS", cx, baseline, { align: "center" });
 }
 
 function addCover(doc: jsPDF, slug: string | null, workTitle?: string) {
@@ -143,7 +141,7 @@ function addCover(doc: jsPDF, slug: string | null, workTitle?: string) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...INK);
-  doc.text("I   U   S", cx, h - 32, { align: "center" });
+  doc.text("IUS", cx, h - 32, { align: "center" });
 
   coverPages.add(doc.getNumberOfPages());
 }

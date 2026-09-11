@@ -133,7 +133,7 @@ function LockScreen({ onUnlock }: { onUnlock: (session: GateSession) => void }) 
       />
       <div className="pointer-events-none absolute inset-0 bg-lock/80" />
       <div className="relative z-10 mx-auto flex w-full max-w-xs flex-col items-center">
-        <IusSeal className="size-40 text-lock-fg" />
+        <IusSeal className="size-36 text-lock-fg sm:size-40" />
         <FloatingPhrase />
         <form
           className="mt-10 grid w-full gap-3"

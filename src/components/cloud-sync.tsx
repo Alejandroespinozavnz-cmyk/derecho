@@ -11,6 +11,8 @@ function payloadHasWork(payload: unknown): boolean {
     notes?: Record<string, string>;
     tasks?: unknown[];
     audioNotes?: unknown[];
+    uploads?: unknown[];
+    tutorSaves?: unknown[];
   };
   if (Array.isArray(p.pages) && p.pages.some((x) => Boolean(x.body?.trim()) || (x.title && x.title !== "Cuaderno general"))) {
     return true;
@@ -19,6 +21,8 @@ function payloadHasWork(payload: unknown): boolean {
   if (p.notes && Object.values(p.notes).some((n) => n?.trim())) return true;
   if (p.tasks && p.tasks.length > 0) return true;
   if (p.audioNotes && p.audioNotes.length > 0) return true;
+  if (p.uploads && p.uploads.length > 0) return true;
+  if (p.tutorSaves && p.tutorSaves.length > 0) return true;
   return false;
 }
 

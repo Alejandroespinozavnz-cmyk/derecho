@@ -3,8 +3,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export const SUPABASE_URL = "https://loxldcykucxapnisjtse.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_Ij95BY6nq6ICMOg9tWN1iA_3tu4zS53";
+export const FILES_BUCKET = "ius-files";
 
 const TIMEOUT_MS = 4000;
+const FILE_TIMEOUT_MS = 60_000;
 
 let client: SupabaseClient | null = null;
 
@@ -21,8 +23,8 @@ function getClient(): SupabaseClient {
   return client;
 }
 
-function abort(): AbortSignal {
-  return AbortSignal.timeout(TIMEOUT_MS);
+function abort(ms = TIMEOUT_MS): AbortSignal {
+  return AbortSignal.timeout(ms);
 }
 
 function isMissingSchema(error: { code?: string; message?: string } | null): boolean {
@@ -35,7 +37,18 @@ function isMissingSchema(error: { code?: string; message?: string } | null): boo
   );
 }
 
-export type CloudStatus = "ready" | "needs_schema" | "unreachable";
+export type CloudStatus = "ready" | "needs_schema" | "needs_storage" | "unreachable";
+
+export async function probeStorage(): Promise<boolean> {
+  try {
+    const { error } = await getClient()
+      .storage.from(FILES_BUCKET)
+      .list("", { limit: 1 });
+    return !error;
+  } catch {
+    return false;
+  }
+}
 
 export async function probeCloud(): Promise<CloudStatus> {
   try {
@@ -47,6 +60,8 @@ export async function probeCloud(): Promise<CloudStatus> {
       .maybeSingle();
     if (isMissingSchema(error)) return "needs_schema";
     if (error) return "unreachable";
+    const storageOk = await probeStorage();
+    if (!storageOk) return "needs_storage";
     return "ready";
   } catch {
     return "unreachable";
@@ -119,5 +134,55 @@ export async function pushStudyPayload(payload: unknown): Promise<boolean> {
     return !error;
   } catch {
     return false;
+  }
+}
+
+export function filePublicUrl(path: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/${FILES_BUCKET}/${path}`;
+}
+
+export function safeStorageName(name: string): string {
+  const base = name
+    .replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ]+/g, "_")
+    .replace(/^\.+/, "")
+    .slice(0, 80);
+  return base || "archivo";
+}
+
+export async function uploadCloudFile(
+  path: string,
+  blob: Blob,
+  contentType: string,
+): Promise<{ path: string; url: string } | null> {
+  try {
+    const { error } = await getClient()
+      .storage.from(FILES_BUCKET)
+      .upload(path, blob, {
+        contentType: contentType || "application/octet-stream",
+        upsert: true,
+      });
+    if (error) return null;
+    return { path, url: filePublicUrl(path) };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteCloudFile(path: string): Promise<void> {
+  try {
+    await getClient().storage.from(FILES_BUCKET).remove([path]);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function downloadCloudFile(urlOrPath: string): Promise<Blob | null> {
+  const url = urlOrPath.startsWith("http") ? urlOrPath : filePublicUrl(urlOrPath);
+  try {
+    const res = await fetch(url, { signal: abort(FILE_TIMEOUT_MS) });
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch {
+    return null;
   }
 }

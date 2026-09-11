@@ -39,8 +39,28 @@ export type CloudPayload = {
     transcript: string;
     durationSec: number;
     at: string;
+    hasBlob?: boolean;
+    storagePath?: string;
+    publicUrl?: string;
   }>;
   tasks?: Array<{ id: string; title: string; done: boolean }>;
+  tutorSaves?: Array<{
+    id: string;
+    subjectSlug: string;
+    question: string;
+    answer: string;
+    at: string;
+  }>;
+  uploads?: Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    sizeBytes: number;
+    subjectSlug: string | null;
+    at: string;
+    storagePath?: string;
+    publicUrl?: string;
+  }>;
 };
 
 export type CloudBackend = "supabase" | "local";
@@ -59,6 +79,8 @@ function payloadHasWork(payload: CloudPayload | null | undefined): boolean {
   if (payload.notes && Object.values(payload.notes).some((n) => n?.trim())) return true;
   if (payload.tasks && payload.tasks.length > 0) return true;
   if (payload.audioNotes && payload.audioNotes.length > 0) return true;
+  if (payload.uploads && payload.uploads.length > 0) return true;
+  if (payload.tutorSaves && payload.tutorSaves.length > 0) return true;
   return false;
 }
 

@@ -32,14 +32,14 @@ const NAV = [
   { to: "/", label: "Inicio", icon: LayoutGrid },
   { to: "/materias", label: "Materias", icon: BookOpen },
   { to: "/cuaderno", label: "Cuaderno", icon: NotebookPen },
-  { to: "/enfoque", label: "Enfoque", icon: Timer },
+  { to: "/tutor", label: "Tutor", icon: MessageSquareText },
 ] as const;
 
 const MORE = [
+  { to: "/enfoque", label: "Enfoque", icon: Timer },
   { to: "/practica", label: "Juego", icon: Dices },
   { to: "/horario", label: "Horario", icon: CalendarDays },
   { to: "/examenes", label: "Exámenes", icon: GraduationCap },
-  { to: "/tutor", label: "Tutor", icon: MessageSquareText },
   { to: "/biblioteca", label: "Biblioteca", icon: FolderOpen },
 ] as const;
 
@@ -144,8 +144,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-bg px-3 py-6 md:flex">
-        <Link to="/" aria-label="IUS" className="mb-8 flex justify-center py-2">
-          <BrandMark size="lg" />
+        <Link to="/" aria-label="IUS" className="mb-8 flex justify-center py-1">
+          <BrandMark size="lg" className="size-14" />
         </Link>
         <PomoChip />
         <nav className="flex flex-1 flex-col gap-0.5">
@@ -196,12 +196,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </a>
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center border-b border-border bg-bg/90 px-4 py-3 md:hidden">
-        <div className="flex flex-1" />
-        <Link to="/" aria-label="IUS">
-          <BrandMark size="md" />
+      <header className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-bg/90 px-2 py-2 md:hidden">
+        <div />
+        <Link to="/" aria-label="IUS" className="justify-self-center">
+          <BrandMark size="lg" className="size-11" />
         </Link>
-        <div className="flex flex-1 items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-0.5">
           <MobilePomoChip />
           <Button
             variant="ghost"
@@ -225,7 +225,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="md:pl-56">
-        <div className="mx-auto max-w-5xl px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-16">
+        <div className="mx-auto max-w-5xl px-4 pt-5 pb-32 md:px-8 md:pt-8 md:pb-16">
           {children}
         </div>
       </div>

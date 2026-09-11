@@ -84,15 +84,17 @@ export function CloudStatusCard() {
         <p className="mt-1 text-sm text-muted">Comprobando…</p>
       ) : null}
       {status === "ready" ? (
-        <p className="mt-1 text-sm text-muted">Cuaderno y clave van al teléfono y a la computadora.</p>
+        <p className="mt-1 text-sm text-muted">Cuaderno, archivos y clave viajan con vos.</p>
       ) : null}
       {status === "unreachable" ? (
         <p className="mt-1 text-sm text-muted">Ahora no llegó. En este aparato sigue el último guardado.</p>
       ) : null}
-      {status === "needs_schema" ? (
+      {status === "needs_schema" || status === "needs_storage" ? (
         <div className="mt-2 grid gap-2">
           <p className="text-sm text-muted">
-            Falta un SQL en tu proyecto. Copialo, pegalo en el editor y dale Run.
+            {status === "needs_storage"
+              ? "Falta el almacén de archivos. Copiá el SQL, pegalo en Supabase y dale Run."
+              : "Falta un SQL en tu proyecto. Copialo, pegalo en el editor y dale Run."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => void copySql()}>

@@ -1,19 +1,21 @@
-import { Mic, Square, Upload } from "lucide-react";
+import { Mic, Square, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { transcribeAudio } from "@/lib/ai.functions";
 import { loadPuter, transcribeWithPuter } from "@/lib/puter-stt";
+import { deleteCloudFile, safeStorageName, uploadCloudFile } from "@/lib/folio-cloud";
+import { deleteUploadBlob, resolveUploadBlob, saveUploadBlob } from "@/lib/uploads-db";
 import { SUBJECTS } from "@/lib/subjects";
-import { useStudyStore } from "@/lib/store";
+import { useStudyStore, type AudioNote } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 function pickRecorderMime(): string {
   const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
     "audio/mp4",
     "audio/ogg;codecs=opus",
+    "audio/webm;codecs=opus",
+    "audio/webm",
   ];
   for (const mime of candidates) {
     if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(mime)) {
@@ -34,6 +36,19 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+
+function publicSttError(raw?: string | null): string {
+  const t = (raw ?? "").trim();
+  if (
+    !t ||
+    /api\s*key|unauthorized|forbidden|401|403|gemini|xai|openai|bearer|quota|clave/i.test(
+      t,
+    )
+  ) {
+    return "No pude transcribir. Probá dictar en vivo.";
+  }
+  return t;
 }
 
 type SpeechRec = {
@@ -58,21 +73,59 @@ function SpeechCtor(): (new () => SpeechRec) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+type Draft = {
+  blob: Blob | null;
+  mime: string;
+  text: string;
+  durationSec: number;
+};
+
+export function AudioPlayer({ noteId }: { noteId: string }) {
+  const note = useStudyStore((s) => s.audioNotes.find((n) => n.id === noteId));
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let alive = true;
+    if (note?.publicUrl) setUrl(note.publicUrl);
+    void resolveUploadBlob({
+      id: noteId,
+      publicUrl: note?.publicUrl,
+      storagePath: note?.storagePath,
+    }).then((blob) => {
+      if (!alive || !blob) return;
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [noteId, note?.publicUrl, note?.storagePath]);
+  if (!url) return null;
+  return (
+    <audio controls src={url} className="mt-2 h-10 w-full" preload="metadata" />
+  );
+}
+
 export function AudioTranscribe({
   subjectSlug,
   pageId,
-  onTranscript,
+  onSaved,
 }: {
   subjectSlug: string | null;
   pageId: string | null;
-  onTranscript?: (text: string) => void;
+  onSaved?: (text: string) => void;
 }) {
   const addAudioNote = useStudyStore((s) => s.addAudioNote);
+  const updateAudioNote = useStudyStore((s) => s.updateAudioNote);
   const [slug, setSlug] = useState(subjectSlug ?? SUBJECTS[0]?.slug ?? "");
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [dictating, setDictating] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -91,17 +144,18 @@ export function AudioTranscribe({
       if (timerRef.current) window.clearInterval(timerRef.current);
       recRef.current?.stop();
       speechRef.current?.stop();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     };
   }, []);
 
-  const saveText = (text: string, durationSec: number) => {
-    addAudioNote({
-      subjectSlug: slug || null,
-      pageId,
-      transcript: text,
-      durationSec,
+  const setDraftSafe = (next: Draft | null) => {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      const url = next?.blob ? URL.createObjectURL(next.blob) : null;
+      previewUrlRef.current = url;
+      return url;
     });
-    onTranscript?.(text);
+    setDraft(next);
   };
 
   const startRec = async () => {
@@ -150,24 +204,28 @@ export function AudioTranscribe({
     }
     setBusy(true);
     try {
+      let text = "";
       try {
         const puter = await transcribeWithPuter(blob);
-        saveText(puter.text, puter.durationSec ?? durationSec);
-        toast.success("Transcripción lista. Quedó en esta hoja.");
-        return;
+        text = puter.text;
       } catch {
-        /* Gemini as backup */
+        const base64 = await blobToBase64(blob);
+        const result = await transcribeAudio({
+          data: { mimeType: mime.split(";")[0] || "audio/webm", base64 },
+        });
+        if (result.ok && result.text.trim()) {
+          text = result.text;
+        } else {
+          toast.error(publicSttError(result.ok ? null : result.error));
+          return;
+        }
       }
-      const base64 = await blobToBase64(blob);
-      const result = await transcribeAudio({
-        data: { mimeType: mime.split(";")[0] || "audio/webm", base64 },
-      });
-      if (result.ok) {
-        saveText(result.text, durationSec);
-        toast.success("Transcripción lista. Quedó en esta hoja.");
+      if (!text.trim()) {
+        toast.error("No se escuchó nada claro. Grabá más cerca.");
         return;
       }
-      toast.error(result.error || "No pude transcribir. Probá dictar en vivo.");
+      setDraftSafe({ blob, mime, text, durationSec });
+      toast.success("Transcripción lista. Guardala para dejarla en el cuaderno.");
     } catch {
       toast.error("Falló la transcripción. Probá dictar en vivo.");
     } finally {
@@ -177,6 +235,44 @@ export function AudioTranscribe({
 
   const onFile = async (file: File) => {
     await sendBlob(file, file.type || "audio/mpeg", 0);
+  };
+
+  const saveDraft = async () => {
+    if (!draft?.text.trim()) return;
+    const id = addAudioNote({
+      subjectSlug: slug || null,
+      pageId,
+      transcript: draft.text,
+      durationSec: draft.durationSec,
+      hasBlob: Boolean(draft.blob),
+    });
+    if (draft.blob) {
+      try {
+        await saveUploadBlob(id, draft.blob);
+        const ext = draft.mime.includes("mp4")
+          ? "m4a"
+          : draft.mime.includes("mpeg")
+            ? "mp3"
+            : "webm";
+        const remote = await uploadCloudFile(
+          `a/${id}/${safeStorageName(`clase.${ext}`)}`,
+          draft.blob,
+          draft.mime.split(";")[0] || "audio/webm",
+        );
+        if (remote) {
+          updateAudioNote(id, {
+            hasBlob: true,
+            storagePath: remote.path,
+            publicUrl: remote.url,
+          });
+        }
+      } catch {
+        toast.error("Se guardó el texto, pero no el archivo de audio.");
+      }
+    }
+    onSaved?.(draft.text);
+    setDraftSafe(null);
+    toast.success("Guardado en el cuaderno.");
   };
 
   const toggleDictate = () => {
@@ -201,7 +297,13 @@ export function AudioTranscribe({
         if (event.results[i]?.isFinal) chunk += event.results[i][0]?.transcript ?? "";
       }
       const text = chunk.trim();
-      if (text) saveText(text, 0);
+      if (!text) return;
+      setDraft((prev) => ({
+        blob: prev?.blob ?? null,
+        mime: prev?.mime ?? "audio/webm",
+        text: prev?.text ? `${prev.text} ${text}` : text,
+        durationSec: prev?.durationSec ?? 0,
+      }));
     };
     rec.onerror = () => {
       setDictating(false);
@@ -218,7 +320,7 @@ export function AudioTranscribe({
     <div className="mt-6 rounded-md border border-border bg-bg-warm p-4">
       <h2 className="font-display text-lg">Grabar la clase</h2>
       <p className="mt-1 text-sm text-muted">
-        Grabá, subí un audio o dictá. Sale en español y se pega en esta hoja.
+        Grabá, subí o dictá. Después guardá para dejarlo en esta hoja.
       </p>
       <select
         value={slug}
@@ -270,6 +372,65 @@ export function AudioTranscribe({
         </Button>
       </div>
       {busy ? <p className="mt-3 text-sm text-muted">Transcribiendo…</p> : null}
+      {draft ? (
+        <div className="mt-4 rounded-md border border-border bg-surface p-3">
+          {previewUrl ? (
+            <audio controls src={previewUrl} className="mb-3 h-10 w-full" />
+          ) : null}
+          <p className="whitespace-pre-wrap text-sm">{draft.text}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button onClick={() => void saveDraft()}>Guardar</Button>
+            <Button variant="ghost" onClick={() => setDraftSafe(null)}>
+              Descartar
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+export function SavedAudioList({
+  notes,
+}: {
+  notes: AudioNote[];
+}) {
+  const removeAudioNote = useStudyStore((s) => s.removeAudioNote);
+  if (notes.length === 0) return null;
+  return (
+    <div className="mt-6">
+      <h2 className="mb-2 font-display text-lg">Audios guardados</h2>
+      <ul className="space-y-3">
+        {notes.map((n) => (
+          <li
+            key={n.id}
+            className="rounded-md border border-border bg-bg-warm p-3 text-sm"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs text-muted">
+                {n.durationSec ? `${n.durationSec}s` : "Audio"}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0 text-subtle"
+                aria-label="Eliminar audio"
+                onClick={() => {
+                  void deleteUploadBlob(n.id);
+                  if (n.storagePath) void deleteCloudFile(n.storagePath);
+                  removeAudioNote(n.id);
+                  toast.success("Audio eliminado.");
+                }}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+            {n.hasBlob || n.publicUrl ? <AudioPlayer noteId={n.id} /> : null}
+            <p className="mt-2 whitespace-pre-wrap">{n.transcript}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+

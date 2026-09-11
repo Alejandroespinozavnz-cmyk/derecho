@@ -45,6 +45,17 @@ export type AudioNote = {
   transcript: string;
   durationSec: number;
   at: string;
+  hasBlob?: boolean;
+  storagePath?: string;
+  publicUrl?: string;
+};
+
+export type TutorSave = {
+  id: string;
+  subjectSlug: string;
+  question: string;
+  answer: string;
+  at: string;
 };
 
 export type Task = {
@@ -71,6 +82,8 @@ export type UploadedFile = {
   sizeBytes: number;
   subjectSlug: string | null;
   at: string;
+  storagePath?: string;
+  publicUrl?: string;
 };
 
 type StudyState = {
@@ -86,6 +99,7 @@ type StudyState = {
   quizBest: Record<string, number>;
   pages: NotebookPage[];
   audioNotes: AudioNote[];
+  tutorSaves: TutorSave[];
   tasks: Task[];
   uploads: UploadedFile[];
   pomo: PomoState;
@@ -107,10 +121,15 @@ type StudyState = {
   updatePage: (id: string, patch: Partial<Pick<NotebookPage, "title" | "body" | "subjectSlug">>) => void;
   removePage: (id: string) => void;
   addAudioNote: (note: Omit<AudioNote, "id" | "at">) => string;
+  updateAudioNote: (id: string, patch: Partial<AudioNote>) => void;
+  removeAudioNote: (id: string) => void;
+  addTutorSave: (note: Omit<TutorSave, "id" | "at">) => string;
+  removeTutorSave: (id: string) => void;
   addTask: (title: string) => void;
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   addUpload: (file: Omit<UploadedFile, "id" | "at">) => string;
+  updateUpload: (id: string, patch: Partial<UploadedFile>) => void;
   removeUpload: (id: string) => void;
   setPomo: (patch: Partial<PomoState>) => void;
 };
@@ -172,7 +191,7 @@ const SEED_EXAMS: Exam[] = [
   },
 ];
 
-const CURRENT_VERSION = 6;
+const CURRENT_VERSION = 8;
 
 const DEFAULT_POMO: PomoState = {
   mode: "idle",
@@ -208,6 +227,7 @@ export const useStudyStore = create<StudyState>()(
       quizBest: {},
       pages: [newPage("Cuaderno general")],
       audioNotes: [],
+      tutorSaves: [],
       tasks: [],
       uploads: [],
       pomo: DEFAULT_POMO,
@@ -327,6 +347,30 @@ export const useStudyStore = create<StudyState>()(
         }));
         return id;
       },
+      updateAudioNote: (id, patch) =>
+        set((s) => ({
+          audioNotes: s.audioNotes.map((n) =>
+            n.id === id ? { ...n, ...patch } : n,
+          ),
+        })),
+      removeAudioNote: (id) =>
+        set((s) => ({
+          audioNotes: s.audioNotes.filter((n) => n.id !== id),
+        })),
+      addTutorSave: (note) => {
+        const id = uid("tut");
+        set((s) => ({
+          tutorSaves: [
+            { ...note, id, at: new Date().toISOString() },
+            ...s.tutorSaves,
+          ].slice(0, 80),
+        }));
+        return id;
+      },
+      removeTutorSave: (id) =>
+        set((s) => ({
+          tutorSaves: s.tutorSaves.filter((n) => n.id !== id),
+        })),
       addTask: (title) =>
         set((s) => ({
           tasks: [{ id: uid("tk"), title, done: false }, ...s.tasks].slice(0, 40),
@@ -347,6 +391,10 @@ export const useStudyStore = create<StudyState>()(
         }));
         return id;
       },
+      updateUpload: (id, patch) =>
+        set((s) => ({
+          uploads: s.uploads.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+        })),
       removeUpload: (id) =>
         set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) })),
       setPomo: (patch) =>
@@ -380,6 +428,7 @@ export const useStudyStore = create<StudyState>()(
               ? p.pages
               : current.pages,
           audioNotes: Array.isArray(p.audioNotes) ? p.audioNotes : current.audioNotes,
+          tutorSaves: Array.isArray(p.tutorSaves) ? p.tutorSaves : current.tutorSaves,
           tasks: Array.isArray(p.tasks) ? p.tasks : current.tasks,
           uploads: Array.isArray(p.uploads) ? p.uploads : current.uploads,
           pomo: p.pomo ? { ...DEFAULT_POMO, ...p.pomo, mode: "idle", endsAt: null } : DEFAULT_POMO,
@@ -414,7 +463,9 @@ export type CloudStudy = {
   quizBest: Record<string, number>;
   pages: NotebookPage[];
   audioNotes: AudioNote[];
+  tutorSaves: TutorSave[];
   tasks: Task[];
+  uploads: UploadedFile[];
 };
 
 export function studySnapshot(): CloudStudy {
@@ -432,7 +483,9 @@ export function studySnapshot(): CloudStudy {
     quizBest: s.quizBest,
     pages: s.pages,
     audioNotes: s.audioNotes,
+    tutorSaves: s.tutorSaves,
     tasks: s.tasks,
+    uploads: s.uploads,
   };
 }
 
@@ -463,7 +516,11 @@ export function hydrateFromCloud(payload: Partial<CloudStudy>) {
     audioNotes: Array.isArray(payload.audioNotes)
       ? payload.audioNotes
       : current.audioNotes,
+    tutorSaves: Array.isArray(payload.tutorSaves)
+      ? payload.tutorSaves
+      : current.tutorSaves,
     tasks: Array.isArray(payload.tasks) ? payload.tasks : current.tasks,
+    uploads: Array.isArray(payload.uploads) ? payload.uploads : current.uploads,
   });
 }
 

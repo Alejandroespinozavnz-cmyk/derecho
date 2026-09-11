@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 
+/** Sello IUS — disco lleno, se lee igual a 40px que en el candado. */
 export function IusSeal({
   className,
   title = "IUS",
@@ -7,100 +8,43 @@ export function IusSeal({
   className?: string;
   title?: string;
 }) {
-  const ticks = Array.from({ length: 12 }, (_, i) => {
-    const a = (i * Math.PI) / 6 - Math.PI / 2;
-    const n = (v: number) => v.toFixed(2);
-    return {
-      x1: n(100 + Math.cos(a) * 80),
-      y1: n(100 + Math.sin(a) * 80),
-      x2: n(100 + Math.cos(a) * 87),
-      y2: n(100 + Math.sin(a) * 87),
-    };
-  });
-
   return (
     <svg
-      viewBox="0 0 200 200"
+      viewBox="0 0 64 64"
       className={cn("text-current", className)}
       role="img"
       aria-label={title}
     >
       <circle
-        cx="100"
-        cy="100"
-        r="96"
+        cx="32"
+        cy="32"
+        r="30.5"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="1.6"
       />
+      <circle cx="32" cy="32" r="26.5" fill="currentColor" />
       <circle
-        cx="100"
-        cy="100"
-        r="88"
+        cx="32"
+        cy="32"
+        r="24"
         fill="none"
-        stroke="currentColor"
+        stroke="var(--color-bg)"
         strokeWidth="0.7"
-      />
-      {ticks.map((t, i) => (
-        <line
-          key={i}
-          x1={t.x1}
-          y1={t.y1}
-          x2={t.x2}
-          y2={t.y2}
-          stroke="currentColor"
-          strokeWidth="1.4"
-        />
-      ))}
-      <line
-        x1="52"
-        y1="78"
-        x2="148"
-        y2="78"
-        stroke="currentColor"
-        strokeWidth="1"
+        opacity="0.35"
       />
       <text
-        x="68"
-        y="114"
+        x="32"
+        y="37.2"
         textAnchor="middle"
-        fill="currentColor"
-        fontSize="34"
-        fontWeight="600"
+        fill="var(--color-bg)"
+        fontSize="16.5"
+        fontWeight="700"
+        letterSpacing="0.8"
         fontFamily="Outfit, system-ui, sans-serif"
       >
-        I
+        IUS
       </text>
-      <text
-        x="100"
-        y="114"
-        textAnchor="middle"
-        fill="currentColor"
-        fontSize="34"
-        fontWeight="600"
-        fontFamily="Outfit, system-ui, sans-serif"
-      >
-        U
-      </text>
-      <text
-        x="132"
-        y="114"
-        textAnchor="middle"
-        fill="currentColor"
-        fontSize="34"
-        fontWeight="600"
-        fontFamily="Outfit, system-ui, sans-serif"
-      >
-        S
-      </text>
-      <line
-        x1="52"
-        y1="126"
-        x2="148"
-        y2="126"
-        stroke="currentColor"
-        strokeWidth="1"
-      />
     </svg>
   );
 }
@@ -113,18 +57,14 @@ export function IusStamp({
   size?: "sm" | "md" | "lg";
 }) {
   return (
-    <span
-      aria-label="IUS"
+    <IusSeal
       className={cn(
-        "inline-flex shrink-0 items-center justify-center border-2 border-current font-semibold tracking-logo uppercase",
-        size === "sm" && "h-8 min-w-14 px-2 text-xs rounded-xs",
-        size === "md" && "h-9 min-w-16 px-2.5 text-xs rounded-xs",
-        size === "lg" && "h-12 min-w-20 px-3 text-sm rounded-sm",
+        size === "sm" && "size-8",
+        size === "md" && "size-10",
+        size === "lg" && "size-12",
         className,
       )}
-    >
-      <span className="translate-x-px">IUS</span>
-    </span>
+    />
   );
 }
 
@@ -135,7 +75,5 @@ export function BrandMark({
   className?: string;
   size?: "sm" | "md" | "lg";
 }) {
-  const box =
-    size === "sm" ? "size-8" : size === "lg" ? "size-11" : "size-9";
-  return <IusSeal className={cn(box, className)} />;
+  return <IusStamp className={className} size={size} />;
 }

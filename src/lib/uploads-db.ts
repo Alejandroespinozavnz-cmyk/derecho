@@ -1,3 +1,5 @@
+import { downloadCloudFile } from "@/lib/folio-cloud";
+
 const DB_NAME = "ius-uploads";
 const STORE = "files";
 
@@ -46,6 +48,21 @@ export async function deleteUploadBlob(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error ?? new Error("delete"));
   });
   db.close();
+}
+
+export async function resolveUploadBlob(file: {
+  id: string;
+  publicUrl?: string;
+  storagePath?: string;
+}): Promise<Blob | undefined> {
+  const local = await getUploadBlob(file.id);
+  if (local) return local;
+  const remote = file.publicUrl || file.storagePath;
+  if (!remote) return undefined;
+  const blob = await downloadCloudFile(remote);
+  if (!blob) return undefined;
+  await saveUploadBlob(file.id, blob).catch(() => undefined);
+  return blob;
 }
 
 export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;

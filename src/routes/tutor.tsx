@@ -1,17 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Bookmark, Loader2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, Panel } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { askTutor } from "@/lib/ai.functions";
+import { chatWithPuter } from "@/lib/puter-chat";
+import { loadPuter } from "@/lib/puter-stt";
+import { tutorSystemPrompt } from "@/lib/tutor-prompt";
 import { PROGRAM, TUTOR_STARTERS } from "@/lib/program";
 import { SUBJECTS, getSubject } from "@/lib/subjects";
+import { useStudyStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type ChatMsg =
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string; saveId?: string };
 
 const DAILY_CAP = 250;
 const CAP_KEY = "folio4-tutor-cap";
@@ -38,6 +45,25 @@ function bumpCap() {
   return n;
 }
 
+function appendTutorToNotebook(
+  slug: string,
+  title: string,
+  question: string,
+  answer: string,
+) {
+  const { pages, addPage, updatePage } = useStudyStore.getState();
+  let page = pages.find((p) => p.subjectSlug === slug);
+  if (!page) {
+    const id = addPage(title, slug);
+    page = useStudyStore.getState().pages.find((p) => p.id === id);
+  }
+  if (!page) return;
+  const block = `— Tutor —\nP: ${question}\n\n${answer}`;
+  updatePage(page.id, {
+    body: `${page.body}${page.body.trim() ? "\n\n" : ""}${block}`,
+  });
+}
+
 export const Route = createFileRoute("/tutor")({
   validateSearch: (s: Record<string, unknown>): { materia?: string } => {
     if (typeof s.materia === "string" && s.materia.length > 0) {
@@ -56,6 +82,10 @@ function TutorPage() {
   const program = PROGRAM[slug];
   const starters = TUTOR_STARTERS[slug] ?? [];
 
+  const tutorSaves = useStudyStore((s) => s.tutorSaves);
+  const addTutorSave = useStudyStore((s) => s.addTutorSave);
+  const removeTutorSave = useStudyStore((s) => s.removeTutorSave);
+
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -64,8 +94,13 @@ function TutorPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const savedHere = tutorSaves.filter((s) => s.subjectSlug === slug);
+
   useEffect(() => {
     setUsed(readCap());
+    void loadPuter().catch(() => {
+      /* se carga al preguntar */
+    });
   }, []);
 
   useEffect(() => {
@@ -77,6 +112,44 @@ function TutorPage() {
     setMessages([]);
     setError(null);
     void navigate({ to: "/tutor", search: { materia: next } });
+  };
+
+  const saveReply = (index: number) => {
+    const m = messages[index];
+    if (!m || m.role !== "assistant" || m.saveId) return;
+    const prev = messages[index - 1];
+    const question = prev?.role === "user" ? prev.content : "";
+    const id = addTutorSave({
+      subjectSlug: slug,
+      question,
+      answer: m.content,
+    });
+    appendTutorToNotebook(
+      slug,
+      subject?.name ?? "Tutor",
+      question,
+      m.content,
+    );
+    setMessages((list) =>
+      list.map((msg, i) =>
+        i === index && msg.role === "assistant" ? { ...msg, saveId: id } : msg,
+      ),
+    );
+    toast.success("Guardado en el cuaderno.");
+  };
+
+  const unsaveReply = (saveId: string, index?: number) => {
+    removeTutorSave(saveId);
+    if (typeof index === "number") {
+      setMessages((list) =>
+        list.map((msg, i) =>
+          i === index && msg.role === "assistant"
+            ? { role: "assistant", content: msg.content }
+            : msg,
+        ),
+      );
+    }
+    toast.success("Respuesta eliminada.");
   };
 
   const send = async (text: string) => {
@@ -97,12 +170,28 @@ function TutorPage() {
     setBusy(true);
     setError(null);
 
-    const result = await askTutor({
-      data: {
-        subjectSlug: slug,
-        messages: next.slice(-8),
-      },
-    });
+    const history = next.slice(-8).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    let result: { ok: true; text: string } | { ok: false; error: string };
+    try {
+      result = await chatWithPuter({
+        system: tutorSystemPrompt(slug),
+        messages: history,
+      });
+    } catch {
+      result = { ok: false, error: "Falló el tutor." };
+    }
+    if (!result.ok) {
+      result = await askTutor({
+        data: {
+          subjectSlug: slug,
+          messages: history,
+        },
+      });
+    }
 
     setBusy(false);
     if (!result.ok) {
@@ -125,7 +214,7 @@ function TutorPage() {
     <AppShell>
       <PageHeader title="Tutor" />
 
-      <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
         {SUBJECTS.map((s) => {
           const active = s.slug === slug;
           return (
@@ -134,7 +223,7 @@ function TutorPage() {
               type="button"
               onClick={() => pickSubject(s.slug)}
               className={cn(
-                "h-10 shrink-0 rounded-full border px-3.5 text-sm font-medium transition-colors",
+                "h-11 shrink-0 rounded-full border px-3.5 text-sm font-medium transition-colors",
                 active
                   ? "border-primary bg-primary text-primary-fg"
                   : "border-border bg-surface text-muted hover:bg-bg-warm hover:text-fg",
@@ -147,25 +236,31 @@ function TutorPage() {
       </div>
 
       {program && subject ? (
-        <Panel className="mb-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-mono text-xs tracking-widest text-subtle">
-                {program.code}
-              </p>
-              <h2 className="mt-1 text-xl font-semibold">{subject.name}</h2>
-            </div>
-            <div className="flex gap-2">
-              <Badge variant="outline">{program.weeklyHours} h/sem</Badge>
-              <Badge variant="paper">{program.credits} UC</Badge>
-            </div>
+        <>
+          <div className="mb-4 flex items-center justify-between gap-3 sm:hidden">
+            <h2 className="text-lg font-semibold">{subject.name}</h2>
+            <Badge variant="outline">{program.code}</Badge>
           </div>
-          <Button asChild variant="ghost" size="sm" className="mt-3 -ml-2">
-            <Link to="/materias/$slug" params={{ slug }} search={{}}>
-              Materia
-            </Link>
-          </Button>
-        </Panel>
+          <Panel className="mb-5 hidden sm:block">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs tracking-widest text-subtle">
+                  {program.code}
+                </p>
+                <h2 className="mt-1 text-xl font-semibold">{subject.name}</h2>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="outline">{program.weeklyHours} h/sem</Badge>
+                <Badge variant="paper">{program.credits} UC</Badge>
+              </div>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="mt-3 -ml-2">
+              <Link to="/materias/$slug" params={{ slug }} search={{}}>
+                Materia
+              </Link>
+            </Button>
+          </Panel>
+        </>
       ) : null}
 
       <div className="space-y-4">
@@ -188,7 +283,7 @@ function TutorPage() {
               key={`${m.role}-${i}`}
               className={cn(
                 "max-w-[42rem]",
-                m.role === "user" ? "ml-auto" : "mr-auto",
+                m.role === "user" ? "ml-auto" : "mr-auto w-full",
               )}
             >
               {m.role === "user" ? (
@@ -196,8 +291,29 @@ function TutorPage() {
                   {m.content}
                 </div>
               ) : (
-                <div className="rounded-xl rounded-tl-sm border border-border bg-surface px-5 py-4 shadow-soft">
-            <p className="mb-2 text-xs font-medium text-muted">Tutor</p>
+                <div className="rounded-xl rounded-tl-sm border border-border bg-surface px-4 py-4 shadow-soft sm:px-5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-muted">Tutor</p>
+                    {m.saveId ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => unsaveReply(m.saveId!, i)}
+                      >
+                        <Trash2 className="size-4" />
+                        Eliminar
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => saveReply(i)}
+                      >
+                        <Bookmark className="size-4" />
+                        Guardar
+                      </Button>
+                    )}
+                  </div>
                   <TutorMarkdown text={m.content} />
                 </div>
               )}
@@ -219,9 +335,39 @@ function TutorPage() {
         <div ref={bottomRef} />
       </div>
 
+      {savedHere.length > 0 ? (
+        <div className="mt-8 mb-6">
+          <h2 className="mb-3 font-display text-lg">Guardados</h2>
+          <ul className="space-y-3">
+            {savedHere.map((s) => (
+              <li
+                key={s.id}
+                className="rounded-lg border border-border bg-surface p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium">{s.question}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 shrink-0 text-subtle"
+                    aria-label="Eliminar respuesta"
+                    onClick={() => unsaveReply(s.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
+                  {s.answer.length > 420 ? `${s.answer.slice(0, 420)}…` : s.answer}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <form
         onSubmit={onSubmit}
-        className="sticky bottom-20 z-10 mt-6 rounded-xl border border-border bg-surface p-3 shadow-soft md:bottom-6"
+        className="sticky bottom-[4.75rem] z-10 mt-6 rounded-xl border border-border bg-surface p-2.5 shadow-soft md:bottom-6 md:p-3"
       >
         <Textarea
           ref={inputRef}
@@ -234,11 +380,14 @@ function TutorPage() {
             }
           }}
           placeholder={`Preguntá sobre ${subject?.name ?? "Derecho"}…`}
-          className="min-h-20 border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0"
+          className="min-h-16 border-0 bg-transparent px-2 py-2 text-base shadow-none focus-visible:ring-0 md:min-h-20"
           disabled={busy || remaining === 0}
         />
         <div className="mt-1 flex items-center justify-between gap-2 px-1">
-          <p className="text-xs text-subtle">Enter envía · Shift+Enter salto</p>
+          <p className="hidden text-xs text-subtle sm:block">
+            Enter envía · Shift+Enter salto
+          </p>
+          <p className="text-xs text-subtle sm:hidden">Enter envía</p>
           <Button
             type="submit"
             size="sm"

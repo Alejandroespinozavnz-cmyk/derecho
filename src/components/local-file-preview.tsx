@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { getUploadBlob } from "@/lib/uploads-db";
+import { resolveUploadBlob } from "@/lib/uploads-db";
 import type { UploadedFile } from "@/lib/store";
 
 export function LocalFilePreview({
@@ -21,7 +21,10 @@ export function LocalFilePreview({
       setUrl(null);
       return;
     }
-    void getUploadBlob(file.id).then((blob) => {
+    if (file.publicUrl) {
+      setUrl(file.publicUrl);
+    }
+    void resolveUploadBlob(file).then((blob) => {
       if (!alive || !blob) return;
       objectUrl = URL.createObjectURL(blob);
       setUrl(objectUrl);
@@ -34,6 +37,7 @@ export function LocalFilePreview({
 
   const isImage = Boolean(file?.mimeType.startsWith("image/"));
   const isPdf = file?.mimeType === "application/pdf" || file?.name.toLowerCase().endsWith(".pdf");
+  const downloadHref = url ?? file?.publicUrl ?? undefined;
 
   return (
     <Sheet
@@ -47,9 +51,9 @@ export function LocalFilePreview({
           <SheetTitle className="line-clamp-2 text-left">
             {file?.name ?? "Archivo"}
           </SheetTitle>
-          {url ? (
+          {downloadHref ? (
             <Button asChild size="sm" variant="outline" className="mt-3">
-              <a href={url} download={file?.name}>
+              <a href={downloadHref} download={file?.name} target="_blank" rel="noreferrer">
                 <Download className="size-4" />
                 Descargar
               </a>

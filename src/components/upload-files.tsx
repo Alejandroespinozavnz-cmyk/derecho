@@ -8,6 +8,7 @@ import {
   deleteUploadBlob,
   saveUploadBlob,
 } from "@/lib/uploads-db";
+import { deleteCloudFile, safeStorageName, uploadCloudFile } from "@/lib/folio-cloud";
 import { kindFromMime } from "@/lib/subjects";
 import { useStudyStore, type UploadedFile } from "@/lib/store";
 import { cn, formatBytes } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function UploadButton({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const addUpload = useStudyStore((s) => s.addUpload);
+  const updateUpload = useStudyStore((s) => s.updateUpload);
   const count = useStudyStore((s) => s.uploads.length);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +66,17 @@ export function UploadButton({
         } catch {
           useStudyStore.getState().removeUpload(id);
           toast.error(`No pude guardar ${file.name}.`);
+          continue;
+        }
+        const remote = await uploadCloudFile(
+          `u/${id}/${safeStorageName(file.name)}`,
+          file,
+          file.type || "application/octet-stream",
+        );
+        if (remote) {
+          updateUpload(id, { storagePath: remote.path, publicUrl: remote.url });
+        } else {
+          toast.message(`${file.name} quedó en este aparato. Corré el SQL de archivos para verlo en todos lados.`);
         }
       }
     } finally {
@@ -135,6 +148,7 @@ export function UploadList({
               aria-label="Quitar"
               onClick={() => {
                 void deleteUploadBlob(file.id);
+                if (file.storagePath) void deleteCloudFile(file.storagePath);
                 removeUpload(file.id);
               }}
             >

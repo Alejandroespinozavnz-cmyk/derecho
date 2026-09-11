@@ -3,7 +3,7 @@ import { Download, FileDown, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { AudioTranscribe } from "@/components/audio-transcribe";
+import { AudioTranscribe, SavedAudioList } from "@/components/audio-transcribe";
 import { PageHeader, Panel } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +95,24 @@ function CuadernoPage() {
       />
 
       <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
-        <Panel className="h-fit p-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
+          {pages.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setActiveId(p.id)}
+              className={cn(
+                "h-11 shrink-0 rounded-sm border px-3 text-sm font-medium",
+                p.id === page?.id
+                  ? "border-fg bg-fg text-bg"
+                  : "border-border bg-surface text-muted",
+              )}
+            >
+              {p.title || "Sin título"}
+            </button>
+          ))}
+        </div>
+        <Panel className="hidden h-fit p-3 lg:block">
           <ul className="space-y-1">
             {pages.map((p) => (
               <li key={p.id}>
@@ -169,7 +186,7 @@ function CuadernoPage() {
               value={page.body}
               onChange={(e) => updatePage(page.id, { body: e.target.value })}
               placeholder="Apuntes, esquemas, artículos, lo que dijo el profesor…"
-              className="min-h-[22rem]"
+              className="min-h-[16rem] md:min-h-[22rem]"
             />
             <p className="mt-2 text-xs text-subtle">
               Guardado automático. El PDF lleva portada con el sello IUS.
@@ -177,7 +194,7 @@ function CuadernoPage() {
             <AudioTranscribe
               subjectSlug={page.subjectSlug}
               pageId={page.id}
-              onTranscript={(text) => {
+              onSaved={(text) => {
                 const current = useStudyStore
                   .getState()
                   .pages.find((p) => p.id === page.id);
@@ -187,25 +204,7 @@ function CuadernoPage() {
                 });
               }}
             />
-            {relatedAudio.length > 0 ? (
-              <div className="mt-6">
-                <h2 className="mb-2 font-display text-lg">Audios transcritos</h2>
-                <ul className="space-y-3">
-                  {relatedAudio.map((n) => (
-                    <li
-                      key={n.id}
-                      className="rounded-md border border-border bg-bg-warm p-3 text-sm"
-                    >
-                      <p className="mb-1 text-xs text-muted">
-                        {new Date(n.at).toLocaleString("es-VE")}
-                        {n.durationSec ? ` · ${n.durationSec}s` : ""}
-                      </p>
-                      <p className="whitespace-pre-wrap">{n.transcript}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <SavedAudioList notes={relatedAudio} />
           </Panel>
         ) : null}
       </div>

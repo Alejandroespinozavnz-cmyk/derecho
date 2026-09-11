@@ -1,6 +1,7 @@
 /**
- * Browser speech-to-text via Puter.js (no API key in IUS).
+ * Browser AI via Puter.js — no API key in IUS.
  * @see https://docs.puter.com/AI/speech2txt/
+ * @see https://docs.puter.com/AI/chat/
  */
 
 export type Speech2TxtResult = {
@@ -30,7 +31,14 @@ type Speech2TxtFn = (
   testMode?: boolean,
 ) => Promise<string | Speech2TxtResult>;
 
-type PuterHost = { ai?: { speech2txt?: Speech2TxtFn } };
+type ChatFn = (
+  prompt: string | Array<{ role: string; content: string }>,
+  options?: Record<string, unknown>,
+) => Promise<unknown>;
+
+export type PuterHost = {
+  ai?: { speech2txt?: Speech2TxtFn; chat?: ChatFn };
+};
 
 declare global {
   interface Window {
@@ -59,8 +67,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function sanitize(msg: string): string {
+  if (/api\s*key|unauthorized|forbidden|401|403|bearer|quota|clave/i.test(msg)) {
+    return "No pude transcribir el audio.";
+  }
+  return msg || "No pude transcribir el audio.";
+}
+
 export async function loadPuter(timeoutMs = 10_000): Promise<PuterHost> {
-  if (window.puter?.ai?.speech2txt) return window.puter;
+  if (window.puter?.ai) return window.puter;
 
   if (!document.querySelector("script[data-folio-puter]")) {
     await new Promise<void>((resolve, reject) => {
@@ -77,10 +92,10 @@ export async function loadPuter(timeoutMs = 10_000): Promise<PuterHost> {
 
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (window.puter?.ai?.speech2txt) return window.puter;
+    if (window.puter?.ai) return window.puter;
     await sleep(40);
   }
-  throw new Error("El transcriptor no arrancó.");
+  throw new Error("Puter no arrancó.");
 }
 
 export async function transcribeWithPuter(
@@ -94,20 +109,13 @@ export async function transcribeWithPuter(
     {
       audio: source,
       language: "es",
-      model: "gpt-4o-mini-transcribe",
+      model: "whisper-1",
       prompt: LEGAL_PROMPT,
     },
     {
       file: source,
-      provider: "xai",
       language: "es",
       format: true,
-    },
-    {
-      audio: source,
-      model: "whisper-1",
-      language: "es",
-      prompt: LEGAL_PROMPT,
     },
   ];
 
@@ -126,7 +134,7 @@ export async function transcribeWithPuter(
           : undefined;
       return { text, durationSec };
     } catch (err) {
-      lastError = err instanceof Error ? err.message : lastError;
+      lastError = sanitize(err instanceof Error ? err.message : lastError);
     }
   }
   throw new Error(lastError);

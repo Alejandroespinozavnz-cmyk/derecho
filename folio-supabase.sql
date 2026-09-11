@@ -1,4 +1,4 @@
--- Cátedra — pegar en el editor SQL de tu proyecto y darle Run
+-- IUS — pegar en el editor SQL de tu proyecto y darle Run
 create table if not exists folio_settings (
   id text primary key,
   password_hash text not null,
@@ -45,3 +45,23 @@ on conflict (id) do nothing;
 insert into folio_state (id, payload)
 values ('default', '{}'::jsonb)
 on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('ius-files', 'ius-files', true, 12582912)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit;
+
+drop policy if exists ius_files_select on storage.objects;
+drop policy if exists ius_files_insert on storage.objects;
+drop policy if exists ius_files_update on storage.objects;
+drop policy if exists ius_files_delete on storage.objects;
+
+create policy ius_files_select on storage.objects
+  for select to anon, authenticated using (bucket_id = 'ius-files');
+create policy ius_files_insert on storage.objects
+  for insert to anon, authenticated with check (bucket_id = 'ius-files');
+create policy ius_files_update on storage.objects
+  for update to anon, authenticated using (bucket_id = 'ius-files') with check (bucket_id = 'ius-files');
+create policy ius_files_delete on storage.objects
+  for delete to anon, authenticated using (bucket_id = 'ius-files');
