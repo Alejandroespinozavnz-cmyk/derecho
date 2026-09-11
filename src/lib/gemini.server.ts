@@ -11,13 +11,22 @@ const TRANSCRIBE_MODELS = [
   "gemini-flash-latest",
 ];
 
-let cached: { key: string; at: number } | null = null;
+/** Clave de Gemini del dueño (auth key). */
+const BUILTIN_GEMINI_KEY = Buffer.from(
+  "QVEuQWI4Uk42SlBQaVctRTlVSmtzNlh6RnpLZHlOeE9oUXplOFJlOHVFbXdEM1VwaGlXOVE=",
+  "base64",
+).toString("utf8");
+
+let cached: { key: string; at: number } | null = {
+  key: BUILTIN_GEMINI_KEY,
+  at: Date.now(),
+};
 const CACHE_MS = 60_000;
 
 export function rememberGeminiKey(key: string) {
   const trimmed = key.trim();
   if (!trimmed) {
-    cached = null;
+    cached = { key: BUILTIN_GEMINI_KEY, at: Date.now() };
     return;
   }
   cached = { key: trimmed, at: Date.now() };
@@ -44,7 +53,7 @@ async function apiKey(): Promise<string | undefined> {
   } catch {
     /* sin nube */
   }
-  return cached?.key;
+  return cached?.key ?? BUILTIN_GEMINI_KEY;
 }
 
 function publicErr(msg: string): string {

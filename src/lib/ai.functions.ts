@@ -133,7 +133,7 @@ export const saveGeminiKey = createServerFn({ method: "POST" })
         return { ok: false, error: "Tenés que entrar como dueño." };
       }
       const key = data.key.trim();
-      if (!/^AIza[0-9A-Za-z_-]{20,}$/.test(key)) {
+      if (!/^(AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_-]{20,})$/.test(key)) {
         return { ok: false, error: "Esa clave de Gemini no se ve válida." };
       }
       const { writeGeminiKeyRemote } = await import("./supabase.server");

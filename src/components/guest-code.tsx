@@ -263,7 +263,7 @@ export function GeminiKeyForm() {
             type="password"
             autoComplete="off"
             spellCheck={false}
-            placeholder="AIza…"
+            placeholder="AQ.… o AIza…"
             value={key}
             onChange={(e) => setKey(e.target.value)}
           />
