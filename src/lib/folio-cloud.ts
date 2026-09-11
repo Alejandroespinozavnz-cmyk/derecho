@@ -120,18 +120,98 @@ export async function fetchStudyPayload(): Promise<unknown | null> {
 
 export async function pushStudyPayload(payload: unknown): Promise<boolean> {
   try {
+    const existing = await fetchStudyPayload();
+    const keep =
+      existing && typeof existing === "object"
+        ? (existing as { __geminiKey?: unknown }).__geminiKey
+        : undefined;
+    const incoming =
+      payload && typeof payload === "object"
+        ? (payload as { __geminiKey?: unknown }).__geminiKey
+        : undefined;
+    const key =
+      (typeof incoming === "string" && incoming.trim()) ||
+      (typeof keep === "string" && keep.trim()) ||
+      "";
+    const merged =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? {
+            ...(payload as Record<string, unknown>),
+            ...(key ? { __geminiKey: key } : {}),
+          }
+        : payload;
+    if (
+      merged &&
+      typeof merged === "object" &&
+      !Array.isArray(merged) &&
+      !key
+    ) {
+      delete (merged as Record<string, unknown>).__geminiKey;
+    }
     const { error } = await getClient()
       .from("folio_state")
       .upsert(
         {
           id: "default",
-          payload,
+          payload: merged,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
       )
       .abortSignal(abort());
     return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchGeminiKey(): Promise<string | null> {
+  try {
+    const { data, error } = await getClient()
+      .from("folio_settings")
+      .select("gemini_api_key")
+      .eq("id", "default")
+      .abortSignal(abort())
+      .maybeSingle();
+    if (!error) {
+      const key = data?.gemini_api_key;
+      if (typeof key === "string" && key.trim()) return key.trim();
+    }
+  } catch {
+    /* payload fallback */
+  }
+  try {
+    const payload = await fetchStudyPayload();
+    if (payload && typeof payload === "object") {
+      const key = (payload as { __geminiKey?: unknown }).__geminiKey;
+      if (typeof key === "string" && key.trim()) return key.trim();
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export async function pushGeminiKey(key: string): Promise<boolean> {
+  try {
+    const { error } = await getClient()
+      .from("folio_settings")
+      .update({
+        gemini_api_key: key,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", "default")
+      .abortSignal(abort());
+    if (!error) return true;
+  } catch {
+    /* payload fallback */
+  }
+  try {
+    const existing = (await fetchStudyPayload()) ?? {};
+    return pushStudyPayload({
+      ...(typeof existing === "object" && existing ? existing : {}),
+      __geminiKey: key,
+    });
   } catch {
     return false;
   }

@@ -140,16 +140,37 @@ export async function readStatePayload(): Promise<RemoteResult<unknown>> {
   }
 }
 
+function geminiFromPayload(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const key = (raw as { __geminiKey?: unknown }).__geminiKey;
+  return typeof key === "string" && key.trim() ? key.trim() : null;
+}
+
+function withGemini(payload: unknown, key: string | null): unknown {
+  const base =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? { ...(payload as Record<string, unknown>) }
+      : {};
+  if (key) base.__geminiKey = key;
+  else delete base.__geminiKey;
+  return base;
+}
+
 export async function writeStatePayload(
   payload: unknown,
 ): Promise<"ok" | "needs_schema" | "error"> {
   try {
+    const current = await readStatePayload();
+    const keep =
+      current.status === "ok" ? geminiFromPayload(current.data) : null;
+    const incoming = geminiFromPayload(payload);
+    const merged = withGemini(payload, incoming ?? keep);
     const { error } = await getClient()
       .from("folio_state")
       .upsert(
         {
           id: "default",
-          payload,
+          payload: merged,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
@@ -161,4 +182,54 @@ export async function writeStatePayload(
   } catch {
     return "error";
   }
+}
+
+export async function readGeminiKey(): Promise<RemoteResult<string>> {
+  try {
+    const { data, error } = await getClient()
+      .from("folio_settings")
+      .select("gemini_api_key")
+      .eq("id", "default")
+      .abortSignal(abort())
+      .maybeSingle();
+    if (!error) {
+      const key = data?.gemini_api_key;
+      if (typeof key === "string" && key.trim()) {
+        return { status: "ok", data: key.trim() };
+      }
+    } else if (!isMissingSchema(error)) {
+      /* column missing → payload fallback */
+    }
+    const state = await readStatePayload();
+    if (state.status === "ok") {
+      const fromPayload = geminiFromPayload(state.data);
+      if (fromPayload) return { status: "ok", data: fromPayload };
+    }
+    if (state.status === "needs_schema") return { status: "needs_schema" };
+    return { status: "empty" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+export async function writeGeminiKeyRemote(
+  key: string,
+): Promise<"ok" | "needs_schema" | "error"> {
+  try {
+    const { error } = await getClient()
+      .from("folio_settings")
+      .update({
+        gemini_api_key: key,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", "default")
+      .abortSignal(abort());
+    if (!error) return "ok";
+  } catch {
+    /* fallback */
+  }
+  const current = await readStatePayload();
+  if (current.status === "needs_schema") return "needs_schema";
+  const base = current.status === "ok" ? current.data : {};
+  return writeStatePayload(withGemini(base, key));
 }

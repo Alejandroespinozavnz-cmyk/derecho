@@ -17,7 +17,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { GuestCodePanel, ChangePasswordForm, CloudStatusCard } from "@/components/guest-code";
+import { GuestCodePanel, ChangePasswordForm, CloudStatusCard, GeminiKeyForm } from "@/components/guest-code";
 import { ROOT_FOLDER_LINK } from "@/lib/subjects";
 import { useStudyStore } from "@/lib/store";
 import {
@@ -32,7 +32,7 @@ const NAV = [
   { to: "/", label: "Inicio", icon: LayoutGrid },
   { to: "/materias", label: "Materias", icon: BookOpen },
   { to: "/cuaderno", label: "Cuaderno", icon: NotebookPen },
-  { to: "/tutor", label: "Tutor", icon: MessageSquareText },
+  { to: "/tutor", label: "Temiño", icon: MessageSquareText },
 ] as const;
 
 const MORE = [
@@ -320,6 +320,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="mt-4">
                 <CloudStatusCard />
               </div>
+              <GeminiKeyForm />
               <ChangePasswordForm />
             </>
           ) : (

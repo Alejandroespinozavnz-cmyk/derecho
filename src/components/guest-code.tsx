@@ -16,6 +16,7 @@ import {
 import { FOLIO_SUPABASE_SQL } from "@/lib/folio-setup-sql";
 import { probeCloud, pushPasswordHash, type CloudStatus } from "@/lib/folio-cloud";
 import { changeOwnerPassword } from "@/lib/gate.functions";
+import { geminiKeyStatus, saveGeminiKey } from "@/lib/ai.functions";
 
 export function GuestCodePanel() {
   const [code, setCode] = useState<string | null>(null);
@@ -191,6 +192,85 @@ export function ChangePasswordForm() {
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         <Button type="submit" variant="outline" disabled={busy || !current || !next}>
           {busy ? "Guardando…" : "Guardar"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function GeminiKeyForm() {
+  const [key, setKey] = useState("");
+  const [last4, setLast4] = useState<string | null>(null);
+  const [needsSchema, setNeedsSchema] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = readSession()?.token;
+    if (!token) return;
+    void geminiKeyStatus({ data: { token } }).then((res) => {
+      if (!res.ok) return;
+      setLast4(res.last4);
+      setNeedsSchema(res.needsSchema);
+    });
+  }, []);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const token = readSession()?.token;
+    if (!token) {
+      setError("Sesión vencida. Volvé a entrar.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await saveGeminiKey({ data: { token, key } });
+      if (!result.ok) {
+        setError(result.error);
+        if (result.needsSchema) setNeedsSchema(true);
+        return;
+      }
+      setLast4(result.last4);
+      setKey("");
+      setNeedsSchema(false);
+      toast.success("Temiño ya usa Gemini.");
+    } catch {
+      setError("No pude guardar la clave.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={(e) => void onSubmit(e)} className="mt-4 rounded-lg border border-border bg-bg-warm p-4">
+      <p className="font-medium">Profe Temiño</p>
+      <p className="mt-1 text-sm text-muted">
+        {last4
+          ? `Gemini activo ${last4}. Pegá otra si la rotaste.`
+          : "Pegá la clave de Gemini. Queda en tu nube, no en el código."}
+      </p>
+      {needsSchema ? (
+        <p className="mt-2 text-sm text-muted">
+          Primero copiá el SQL de Nube y dale Run en Supabase.
+        </p>
+      ) : null}
+      <div className="mt-3 grid gap-2">
+        <div className="grid gap-1.5">
+          <Label htmlFor="gemini-key">Clave de Gemini</Label>
+          <Input
+            id="gemini-key"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="AIza…"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
+        </div>
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        <Button type="submit" variant="outline" disabled={busy || key.trim().length < 20}>
+          {busy ? "Guardando…" : last4 ? "Cambiar clave" : "Guardar"}
         </Button>
       </div>
     </form>

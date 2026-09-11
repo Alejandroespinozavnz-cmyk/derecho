@@ -224,7 +224,7 @@ function Home() {
               className="flex h-11 items-center justify-center gap-2 bg-surface text-sm font-medium hover:bg-bg-warm"
             >
               <MessageSquareText className="size-4" />
-              Tutor
+              Temiño
             </Link>
             <Link
               to="/enfoque"

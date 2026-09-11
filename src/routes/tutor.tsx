@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { askTutor } from "@/lib/ai.functions";
+import { PROF } from "@/lib/brand";
 import { chatWithPuter } from "@/lib/puter-chat";
-import { loadPuter } from "@/lib/puter-stt";
 import { tutorSystemPrompt } from "@/lib/tutor-prompt";
 import { PROGRAM, TUTOR_STARTERS } from "@/lib/program";
 import { SUBJECTS, getSubject } from "@/lib/subjects";
@@ -58,7 +58,7 @@ function appendTutorToNotebook(
     page = useStudyStore.getState().pages.find((p) => p.id === id);
   }
   if (!page) return;
-  const block = `— Tutor —\nP: ${question}\n\n${answer}`;
+  const block = `— ${PROF.title} —\nP: ${question}\n\n${answer}`;
   updatePage(page.id, {
     body: `${page.body}${page.body.trim() ? "\n\n" : ""}${block}`,
   });
@@ -98,9 +98,6 @@ function TutorPage() {
 
   useEffect(() => {
     setUsed(readCap());
-    void loadPuter().catch(() => {
-      /* se carga al preguntar */
-    });
   }, []);
 
   useEffect(() => {
@@ -126,7 +123,7 @@ function TutorPage() {
     });
     appendTutorToNotebook(
       slug,
-      subject?.name ?? "Tutor",
+      subject?.name ?? PROF.title,
       question,
       m.content,
     );
@@ -156,7 +153,7 @@ function TutorPage() {
     const content = text.trim();
     if (!content || busy) return;
     if (used >= DAILY_CAP) {
-      setError("Hoy ya pediste demasiado al tutor. Mañana se reinicia.");
+      setError("Hoy ya pediste demasiado a Temiño. Mañana se reinicia.");
       return;
     }
     if (content.length > 2000) {
@@ -175,22 +172,22 @@ function TutorPage() {
       content: m.content,
     }));
 
-    let result: { ok: true; text: string } | { ok: false; error: string };
-    try {
-      result = await chatWithPuter({
-        system: tutorSystemPrompt(slug),
-        messages: history,
-      });
-    } catch {
-      result = { ok: false, error: "Falló el tutor." };
-    }
-    if (!result.ok) {
-      result = await askTutor({
+    let result: { ok: true; text: string } | { ok: false; error: string } =
+      await askTutor({
         data: {
           subjectSlug: slug,
           messages: history,
         },
       });
+    if (!result.ok) {
+      try {
+        result = await chatWithPuter({
+          system: tutorSystemPrompt(slug),
+          messages: history,
+        });
+      } catch {
+        /* keep Gemini error */
+      }
     }
 
     setBusy(false);
@@ -212,7 +209,7 @@ function TutorPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Tutor" />
+      <PageHeader title={PROF.title} />
 
       <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
         {SUBJECTS.map((s) => {
@@ -293,7 +290,7 @@ function TutorPage() {
               ) : (
                 <div className="rounded-xl rounded-tl-sm border border-border bg-surface px-4 py-4 shadow-soft sm:px-5">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-muted">Tutor</p>
+                    <p className="text-xs font-medium text-muted">{PROF.title}</p>
                     {m.saveId ? (
                       <Button
                         variant="ghost"
@@ -324,7 +321,7 @@ function TutorPage() {
         {busy ? (
           <div className="flex items-center gap-2 text-sm text-muted">
             <Loader2 className="size-4 animate-spin" />
-            El tutor está redactando…
+            El profe está redactando…
           </div>
         ) : null}
 

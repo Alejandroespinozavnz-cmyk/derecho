@@ -113,7 +113,7 @@ function SubjectPage() {
             <Button asChild variant="outline">
               <Link to="/tutor" search={{ materia: slug }}>
                 <MessageSquareText className="size-4" />
-                Tutor
+                Temiño
               </Link>
             </Button>
             <Button asChild variant="outline">

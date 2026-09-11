@@ -11,13 +11,45 @@ const TRANSCRIBE_MODELS = [
   "gemini-flash-latest",
 ];
 
-function apiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim() || undefined;
+let cached: { key: string; at: number } | null = null;
+const CACHE_MS = 60_000;
+
+export function rememberGeminiKey(key: string) {
+  const trimmed = key.trim();
+  if (!trimmed) {
+    cached = null;
+    return;
+  }
+  cached = { key: trimmed, at: Date.now() };
+}
+
+export function maskGeminiKey(key: string): string {
+  const t = key.trim();
+  if (t.length < 8) return "••••";
+  return `••••${t.slice(-4)}`;
+}
+
+async function apiKey(): Promise<string | undefined> {
+  const env =
+    process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim();
+  if (env) return env;
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.key;
+  try {
+    const { readGeminiKey } = await import("./supabase.server");
+    const remote = await readGeminiKey();
+    if (remote.status === "ok") {
+      cached = { key: remote.data, at: Date.now() };
+      return remote.data;
+    }
+  } catch {
+    /* sin nube */
+  }
+  return cached?.key;
 }
 
 function publicErr(msg: string): string {
   if (/api\s*key|clave|unauthorized|forbidden|401|403|quota/i.test(msg)) {
-    return "El servicio de IA no está disponible.";
+    return "Temiño no está disponible. Revisá la clave de Gemini.";
   }
   return msg;
 }
@@ -33,9 +65,9 @@ export async function geminiGenerate(input: {
   contents: Content[];
   models?: string[];
 }): Promise<{ ok: true; text: string } | { ok: false; error: string; status?: number }> {
-  const key = apiKey();
+  const key = await apiKey();
   if (!key) {
-    return { ok: false, error: "El servicio de IA no está disponible." };
+    return { ok: false, error: "Falta la clave de Gemini para Temiño." };
   }
 
   let lastStatus = 0;

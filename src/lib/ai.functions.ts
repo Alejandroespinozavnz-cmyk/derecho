@@ -24,7 +24,7 @@ function publicAiError(raw?: string | null): string {
       t,
     )
   ) {
-    return "El tutor no está disponible en este momento.";
+    return "Temiño no está disponible en este momento.";
   }
   return t;
 }
@@ -51,7 +51,7 @@ export const askTutor = createServerFn({ method: "POST" })
     if (gemini.ok) return gemini;
     return {
       ok: false,
-      error: publicAiError(gemini.error) || "Falló la conexión con el tutor.",
+      error: publicAiError(gemini.error) || "Falló la conexión con Temiño.",
     };
   });
 
@@ -73,3 +73,83 @@ export const transcribeAudio = createServerFn({ method: "POST" })
       base64: data.base64,
     });
   });
+
+export const geminiKeyStatus = createServerFn({ method: "POST" })
+  .validator(z.object({ token: z.string().min(10).max(200) }))
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      | { ok: true; set: boolean; last4: string | null; needsSchema: boolean }
+      | { ok: false; error: string }
+    > => {
+      const { parseSessionToken } = await import("./gate.server");
+      const session = parseSessionToken(data.token);
+      if (!session || session.role !== "owner") {
+        return { ok: false, error: "Tenés que entrar como dueño." };
+      }
+      const env =
+        process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim();
+      if (env) {
+        const { maskGeminiKey } = await import("./gemini.server");
+        return { ok: true, set: true, last4: maskGeminiKey(env), needsSchema: false };
+      }
+      const { readGeminiKey } = await import("./supabase.server");
+      const remote = await readGeminiKey();
+      if (remote.status === "ok") {
+        const { maskGeminiKey } = await import("./gemini.server");
+        return {
+          ok: true,
+          set: true,
+          last4: maskGeminiKey(remote.data),
+          needsSchema: false,
+        };
+      }
+      return {
+        ok: true,
+        set: false,
+        last4: null,
+        needsSchema: remote.status === "needs_schema",
+      };
+    },
+  );
+
+export const saveGeminiKey = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      token: z.string().min(10).max(200),
+      key: z.string().min(20).max(200),
+    }),
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      { ok: true; last4: string } | { ok: false; error: string; needsSchema?: boolean }
+    > => {
+      const { parseSessionToken } = await import("./gate.server");
+      const session = parseSessionToken(data.token);
+      if (!session || session.role !== "owner") {
+        return { ok: false, error: "Tenés que entrar como dueño." };
+      }
+      const key = data.key.trim();
+      if (!/^AIza[0-9A-Za-z_-]{20,}$/.test(key)) {
+        return { ok: false, error: "Esa clave de Gemini no se ve válida." };
+      }
+      const { writeGeminiKeyRemote } = await import("./supabase.server");
+      const written = await writeGeminiKeyRemote(key);
+      if (written === "needs_schema") {
+        return {
+          ok: false,
+          error: "Falta el SQL de Gemini. Copialo en Nube y dale Run.",
+          needsSchema: true,
+        };
+      }
+      if (written !== "ok") {
+        return { ok: false, error: "No pude guardar la clave en la nube." };
+      }
+      const { rememberGeminiKey, maskGeminiKey } = await import("./gemini.server");
+      rememberGeminiKey(key);
+      return { ok: true, last4: maskGeminiKey(key) };
+    },
+  );

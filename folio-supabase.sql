@@ -42,6 +42,8 @@ insert into folio_settings (id, password_hash)
 values ('default', '37101d1f664aa8859d980580c38141d3413988f15c049d36702d80081b26fdb0')
 on conflict (id) do nothing;
 
+alter table folio_settings add column if not exists gemini_api_key text;
+
 insert into folio_state (id, payload)
 values ('default', '{}'::jsonb)
 on conflict (id) do nothing;
