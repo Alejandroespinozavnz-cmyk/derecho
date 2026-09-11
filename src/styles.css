@@ -2,21 +2,21 @@
 @import "tw-animate-css";
 
 @theme {
-  --color-bg: #f4f4f5;
-  --color-bg-warm: #ececee;
-  --color-surface: #ffffff;
-  --color-surface-2: #fafafa;
-  --color-ink: #111113;
-  --color-fg: #111113;
-  --color-muted: #5c5c64;
-  --color-subtle: #8a8a92;
-  --color-primary: #111113;
-  --color-primary-fg: #f4f4f5;
-  --color-accent: #111113;
-  --color-accent-fg: #f4f4f5;
-  --color-border: color-mix(in oklab, #111113 10%, transparent);
-  --color-border-strong: color-mix(in oklab, #111113 18%, transparent);
-  --color-ring: #111113;
+  --color-bg: #0c0c0e;
+  --color-bg-warm: #141416;
+  --color-surface: #161618;
+  --color-surface-2: #1c1c1f;
+  --color-ink: #f3eee6;
+  --color-fg: #f3eee6;
+  --color-muted: #9c978e;
+  --color-subtle: #6f6b64;
+  --color-primary: #f3eee6;
+  --color-primary-fg: #0c0c0e;
+  --color-accent: #f3eee6;
+  --color-accent-fg: #0c0c0e;
+  --color-border: color-mix(in oklab, #f3eee6 12%, transparent);
+  --color-border-strong: color-mix(in oklab, #f3eee6 22%, transparent);
+  --color-ring: #f3eee6;
   --color-lock: #0c0c0e;
   --color-lock-fg: #f3eee6;
   --color-danger: #b42318;
@@ -54,7 +54,7 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   html,
@@ -97,7 +97,7 @@
   input[type="date"],
   input[type="time"],
   select {
-    color-scheme: light;
+    color-scheme: dark;
   }
 }
 

@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { BrandMark } from "@/components/brand-mark";
 import { LocalFilePreview } from "@/components/local-file-preview";
 import { UploadButton } from "@/components/upload-files";
 import { Badge } from "@/components/ui/badge";
@@ -55,36 +54,30 @@ function Home() {
   return (
     <AppShell>
       <header className="mb-8 flex items-end justify-between gap-3">
-        <div>
-          <h1>
-            <BrandMark size="lg" />
-            <span className="sr-only">IUS</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {focusMin} min esta semana · {pageCount} hoja{pageCount === 1 ? "" : "s"}
-          </p>
-        </div>
+        <p className="text-sm text-muted">
+          {focusMin} min esta semana · {pageCount} hoja{pageCount === 1 ? "" : "s"}
+        </p>
         <UploadButton />
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="flex flex-col gap-8 lg:col-span-2">
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="text-sm font-medium text-muted">Hoy</h2>
               <Link to="/horario" className="text-sm text-muted hover:text-fg">
                 Horario
               </Link>
             </div>
             {todaySlots.length > 0 ? (
-              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+              <ul className="divide-y divide-border border-y border-border">
                 {todaySlots.map((row) => (
                   <li key={row.slot + row.subject.slug}>
                     <Link
                       to="/materias/$slug"
                       params={{ slug: row.subject.slug }}
                       search={{}}
-                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                      className="flex items-center justify-between gap-3 py-3.5"
                     >
                       <span className="font-medium">{row.subject.name}</span>
                       <span className="tabular-nums text-sm text-muted">
@@ -95,20 +88,18 @@ function Home() {
                 ))}
               </ul>
             ) : (
-              <p className="rounded-2xl border border-border bg-surface px-5 py-4 text-sm text-muted">
-                Sin bloques hoy.
-              </p>
+              <p className="py-3 text-sm text-muted">Sin bloques hoy.</p>
             )}
           </section>
 
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="text-sm font-medium text-muted">Materias</h2>
               <Link to="/materias" className="text-sm text-muted hover:text-fg">
                 Todas
               </Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <ul className="divide-y divide-border border-y border-border">
               {SUBJECTS.map((s) => {
                 const done = s.topics.filter(
                   (t) => topics[topicKey(s.slug, t)],
@@ -117,39 +108,40 @@ function Home() {
                   (done / Math.max(s.topics.length, 1)) * 100,
                 );
                 return (
-                  <Link
-                    key={s.slug}
-                    to="/materias/$slug"
-                    params={{ slug: s.slug }}
-                    search={{}}
-                    className="rounded-2xl border border-border bg-surface p-5 transition-colors hover:bg-bg-warm"
-                  >
-                    <span className="text-xs tracking-[0.18em] text-muted">
-                      {s.initials}
-                    </span>
-                    <span className="mt-2 block font-semibold">{s.name}</span>
-                    <Progress value={pct} className="mt-3" />
-                    <span className="mt-2 block text-xs tabular-nums text-subtle">
-                      {done}/{s.topics.length}
-                    </span>
-                  </Link>
+                  <li key={s.slug}>
+                    <Link
+                      to="/materias/$slug"
+                      params={{ slug: s.slug }}
+                      search={{}}
+                      className="flex items-center gap-4 py-3.5"
+                    >
+                      <span className="w-10 shrink-0 text-xs tracking-logo text-muted">
+                        {s.initials}
+                      </span>
+                      <span className="min-w-0 flex-1 font-medium">{s.name}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-subtle">
+                        {done}/{s.topics.length}
+                      </span>
+                      <Progress value={pct} className="hidden w-20 sm:block" />
+                    </Link>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </section>
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="text-sm font-medium text-muted">Exámenes</h2>
               <Link to="/examenes" className="text-sm text-muted hover:text-fg">
                 Agenda
               </Link>
             </div>
-            <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+            <ul className="divide-y divide-border border-y border-border">
               {upcoming.length === 0 && undated.length === 0 ? (
-                <li className="px-5 py-4 text-sm text-muted">Nada cargado.</li>
+                <li className="py-3 text-sm text-muted">Nada cargado.</li>
               ) : null}
               {upcoming.map((e) => {
                 const sub = getSubject(e.subjectSlug);
@@ -160,7 +152,7 @@ function Home() {
                 return (
                   <li
                     key={e.id}
-                    className="flex items-center justify-between gap-3 px-5 py-3.5"
+                    className="flex items-center justify-between gap-3 py-3.5"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{e.title}</p>
@@ -182,7 +174,7 @@ function Home() {
                 ? undated.slice(0, 3).map((e) => (
                     <li
                       key={e.id}
-                      className="flex items-center justify-between gap-3 px-5 py-3.5"
+                      className="flex items-center justify-between gap-3 py-3.5"
                     >
                       <p className="truncate text-sm font-medium">{e.title}</p>
                       <Badge variant="paper">Fecha</Badge>
@@ -193,24 +185,22 @@ function Home() {
           </section>
 
           <section>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="text-sm font-medium text-muted">Archivos</h2>
               <Link to="/biblioteca" className="text-sm text-muted hover:text-fg">
                 Ver
               </Link>
             </div>
             {uploads.length === 0 ? (
-              <p className="rounded-2xl border border-border bg-surface px-5 py-4 text-sm text-muted">
-                Subí guías, parciales o fotos de pizarra.
-              </p>
+              <p className="py-3 text-sm text-muted">Nada subido.</p>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+              <ul className="divide-y divide-border border-y border-border">
                 {uploads.slice(0, 4).map((f) => (
                   <li key={f.id}>
                     <button
                       type="button"
                       onClick={() => setOpenFile(f)}
-                      className="w-full truncate px-5 py-3.5 text-left text-sm font-medium hover:bg-bg-warm"
+                      className="w-full truncate py-3.5 text-left text-sm font-medium hover:text-muted"
                     >
                       {f.name}
                     </button>
@@ -220,10 +210,10 @@ function Home() {
             )}
           </section>
 
-          <nav className="grid grid-cols-2 gap-2">
+          <nav className="grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-border bg-border">
             <Link
               to="/cuaderno"
-              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+              className="flex h-11 items-center justify-center gap-2 bg-surface text-sm font-medium hover:bg-bg-warm"
             >
               <NotebookPen className="size-4" />
               Cuaderno
@@ -231,21 +221,21 @@ function Home() {
             <Link
               to="/tutor"
               search={{}}
-              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+              className="flex h-11 items-center justify-center gap-2 bg-surface text-sm font-medium hover:bg-bg-warm"
             >
               <MessageSquareText className="size-4" />
               Tutor
             </Link>
             <Link
               to="/enfoque"
-              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+              className="flex h-11 items-center justify-center gap-2 bg-surface text-sm font-medium hover:bg-bg-warm"
             >
               <Timer className="size-4" />
               Enfoque
             </Link>
             <Link
               to="/examenes"
-              className="flex h-11 items-center justify-center gap-2 rounded-sm border border-border bg-surface text-sm font-medium hover:bg-bg-warm"
+              className="flex h-11 items-center justify-center gap-2 bg-surface text-sm font-medium hover:bg-bg-warm"
             >
               <GraduationCap className="size-4" />
               Exámenes

@@ -27,9 +27,9 @@ function systemPrompt(slug: string): string {
 
   const focus = PROGRAM[slug]
     ? `Materia en foco:\n${SUBJECTS.find((s) => s.slug === slug)?.fullName ?? slug}\n${syllabusForPrompt(slug)}`
-    : "El estudiante no eligió una materia concreta. Preguntá cuál, o contestá con el plan de 4to.";
+    : "El estudiante no eligió una materia concreta. Preguntá cuál, o contestá con el plan de estudio.";
 
-  return `Sos el tutor de IUS, el cuaderno de estudio de ${YEAR.label} de ${YEAR.career} en la ${YEAR.university} (${YEAR.faculty}, ${YEAR.academicYear}).
+  return `Sos el tutor de IUS, el cuaderno de estudio de Derecho en la ${YEAR.university} (${YEAR.faculty}).
 
 Plan oficial: ${YEAR.subjectCount} materias anuales, ${YEAR.weeklyHours} horas semanales, ${YEAR.credits} unidades de crédito.
 ${catalog}

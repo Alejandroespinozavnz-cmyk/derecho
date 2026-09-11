@@ -16,7 +16,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: BRAND.name },
-      { name: "theme-color", content: "#f4f4f5" },
+      { name: "theme-color", content: "#0c0c0e" },
       {
         name: "description",
         content: BRAND.description,

@@ -256,7 +256,7 @@ function SubjectPage() {
             <p className="mb-4 text-sm text-muted">
               {program
                 ? program.objective
-                : "Temario UCAT 2025-2026."}
+                : "Temario oficial."}
             </p>
             {program ? (
               <ol className="space-y-1">

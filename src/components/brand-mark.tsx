@@ -53,30 +53,51 @@ export function IusSeal({
         />
       ))}
       <line
-        x1="50"
-        y1="76"
-        x2="150"
-        y2="76"
+        x1="52"
+        y1="78"
+        x2="148"
+        y2="78"
         stroke="currentColor"
         strokeWidth="1"
       />
       <text
-        x="100"
-        y="118"
+        x="68"
+        y="114"
         textAnchor="middle"
         fill="currentColor"
         fontSize="34"
         fontWeight="600"
-        letterSpacing="8"
         fontFamily="Outfit, system-ui, sans-serif"
       >
-        IUS
+        I
+      </text>
+      <text
+        x="100"
+        y="114"
+        textAnchor="middle"
+        fill="currentColor"
+        fontSize="34"
+        fontWeight="600"
+        fontFamily="Outfit, system-ui, sans-serif"
+      >
+        U
+      </text>
+      <text
+        x="132"
+        y="114"
+        textAnchor="middle"
+        fill="currentColor"
+        fontSize="34"
+        fontWeight="600"
+        fontFamily="Outfit, system-ui, sans-serif"
+      >
+        S
       </text>
       <line
-        x1="50"
-        y1="132"
-        x2="150"
-        y2="132"
+        x1="52"
+        y1="126"
+        x2="148"
+        y2="126"
         stroke="currentColor"
         strokeWidth="1"
       />

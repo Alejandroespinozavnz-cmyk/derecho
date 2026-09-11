@@ -13,7 +13,7 @@ function MateriasPage() {
   return (
     <AppShell>
       <PageHeader title="Materias" />
-      <ol className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+      <ol className="divide-y divide-border border-y border-border">
         {SUBJECTS.map((s) => {
           const done = s.topics.filter((t) => topics[topicKey(s.slug, t)]).length;
           const pct = Math.round((done / Math.max(s.topics.length, 1)) * 100);
@@ -23,7 +23,7 @@ function MateriasPage() {
                 to="/materias/$slug"
                 params={{ slug: s.slug }}
                 search={{}}
-                className="flex items-center gap-4 px-4 py-4 transition-colors hover:bg-bg md:px-5"
+                className="flex items-center gap-4 py-4 transition-colors hover:text-muted"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-3">

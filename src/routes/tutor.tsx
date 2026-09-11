@@ -233,7 +233,7 @@ function TutorPage() {
               void send(draft);
             }
           }}
-          placeholder={`Preguntá sobre ${subject?.name ?? "4to año"}…`}
+          placeholder={`Preguntá sobre ${subject?.name ?? "Derecho"}…`}
           className="min-h-20 border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0"
           disabled={busy || remaining === 0}
         />

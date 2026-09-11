@@ -1,6 +1,5 @@
 import { jsPDF } from "jspdf";
 import { BRAND } from "@/lib/brand";
-import { YEAR } from "@/lib/program";
 import { getSubject, SUBJECTS } from "@/lib/subjects";
 import type { AudioNote, NotebookPage } from "@/lib/store";
 
@@ -9,20 +8,22 @@ type RGB = [number, number, number];
 type Cover = { band: RGB };
 
 const COVERS: Record<string, Cover> = {
-  "civil-iv": { band: [122, 40, 38] },
-  administrativo: { band: [47, 72, 102] },
-  laboral: { band: [46, 90, 64] },
-  mercantil: { band: [110, 78, 48] },
-  procesal: { band: [40, 52, 78] },
-  pruebas: { band: [48, 48, 52] },
-  "practicas-adm": { band: [32, 92, 92] },
-  "practicas-proc": { band: [120, 52, 52] },
+  "civil-iv": { band: [72, 28, 28] },
+  administrativo: { band: [36, 52, 74] },
+  laboral: { band: [32, 64, 48] },
+  mercantil: { band: [74, 54, 36] },
+  procesal: { band: [32, 40, 60] },
+  pruebas: { band: [40, 40, 44] },
+  "practicas-adm": { band: [28, 64, 64] },
+  "practicas-proc": { band: [74, 36, 36] },
 };
 
 const FALLBACK: Cover = { band: [17, 17, 19] };
-const PAPER: RGB = [250, 250, 249];
+const PAPER: RGB = [247, 244, 236];
 const INK: RGB = [17, 17, 19];
-const MUTED: RGB = [92, 92, 100];
+const MUTED: RGB = [90, 86, 78];
+
+const coverPages = new Set<number>();
 
 function coverOf(slug: string | null | undefined): Cover {
   if (!slug) return FALLBACK;
@@ -39,84 +40,139 @@ function pdfSafe(text: string): string {
     .replace(/\u00a0/g, " ");
 }
 
-function fileStamp(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function slugName(slug: string | null | undefined): string {
   if (!slug) return "General";
   return getSubject(slug)?.name ?? slug;
 }
 
-function addCover(doc: jsPDF, slug: string | null, subtitle: string) {
+function fileLabel(slug: string | null | undefined): string {
+  return slugName(slug).replace(/\s+/g, "-");
+}
+
+function drawIusSeal(doc: jsPDF, cx: number, cy: number, r: number, color: RGB) {
+  doc.setDrawColor(...color);
+  doc.setLineWidth(Math.max(0.35, r * 0.018));
+  doc.circle(cx, cy, r, "S");
+  doc.setLineWidth(Math.max(0.12, r * 0.008));
+  doc.circle(cx, cy, r * 0.88, "S");
+  doc.setLineWidth(Math.max(0.22, r * 0.012));
+  for (let i = 0; i < 12; i++) {
+    const a = (i * Math.PI) / 6 - Math.PI / 2;
+    doc.line(
+      cx + Math.cos(a) * r * 0.8,
+      cy + Math.sin(a) * r * 0.8,
+      cx + Math.cos(a) * r * 0.87,
+      cy + Math.sin(a) * r * 0.87,
+    );
+  }
+  const rw = r * 0.48;
+  doc.setLineWidth(Math.max(0.16, r * 0.01));
+  doc.line(cx - rw, cy - r * 0.22, cx + rw, cy - r * 0.22);
+  doc.line(cx - rw, cy + r * 0.26, cx + rw, cy + r * 0.26);
+  doc.setTextColor(...color);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(Math.max(10, r * 0.72));
+  const baseline = cy + r * 0.14;
+  doc.text("I", cx - r * 0.32, baseline, { align: "center" });
+  doc.text("U", cx, baseline, { align: "center" });
+  doc.text("S", cx + r * 0.32, baseline, { align: "center" });
+}
+
+function addCover(doc: jsPDF, slug: string | null, workTitle?: string) {
   const cover = coverOf(slug);
   const subject = slug ? getSubject(slug) : undefined;
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
+  const cx = w / 2;
 
   doc.setFillColor(...PAPER);
   doc.rect(0, 0, w, h, "F");
+
   doc.setFillColor(...cover.band);
-  doc.rect(0, 0, 8, h, "F");
+  doc.rect(0, 0, w, 7, "F");
+  doc.rect(0, h - 7, w, 7, "F");
 
-  doc.setTextColor(...INK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(BRAND.name, 22, 28);
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.35);
+  doc.rect(14, 18, w - 28, h - 36, "S");
+  doc.setLineWidth(0.12);
+  doc.rect(16.5, 20.5, w - 33, h - 41, "S");
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...MUTED);
-  doc.text(pdfSafe(YEAR.academicYear), 22, 36);
+  drawIusSeal(doc, cx, 88, 28, INK);
 
-  doc.setTextColor(...INK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
   const title = pdfSafe(subject?.name ?? "Cuaderno");
-  const titleLines = doc.splitTextToSize(title, w - 44) as string[];
-  doc.text(titleLines, 22, 72);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(12);
-  doc.setTextColor(...MUTED);
-  doc.text(pdfSafe(subtitle), 22, 72 + titleLines.length * 12);
+  doc.setFont("times", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...INK);
+  const titleLines = doc.splitTextToSize(title, w - 56) as string[];
+  let y = 140;
+  doc.text(titleLines, cx, y, { align: "center" });
+  y += titleLines.length * 12;
 
   if (subject?.fullName && subject.fullName !== subject.name) {
-    doc.setFontSize(10);
-    doc.text(pdfSafe(subject.fullName), 22, h - 36);
+    doc.setFont("times", "italic");
+    doc.setFontSize(12);
+    doc.setTextColor(...MUTED);
+    const full = doc.splitTextToSize(pdfSafe(subject.fullName), w - 64) as string[];
+    y += 6;
+    doc.text(full, cx, y, { align: "center" });
+    y += full.length * 6.5;
   }
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...INK);
-  doc.text(pdfSafe(YEAR.university), 22, h - 24);
+
+  const work = workTitle?.trim();
+  if (work && work !== title) {
+    doc.setDrawColor(...INK);
+    doc.setLineWidth(0.2);
+    doc.line(cx - 16, y + 10, cx + 16, y + 10);
+    doc.setFont("times", "normal");
+    doc.setFontSize(13);
+    doc.setTextColor(...INK);
+    const workLines = doc.splitTextToSize(pdfSafe(work), w - 64) as string[];
+    doc.text(workLines, cx, y + 20, { align: "center" });
+  }
 
   if (subject?.initials) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(36);
+    doc.setFontSize(9);
     doc.setTextColor(...cover.band);
-    doc.text(subject.initials, w - 16, h - 22, { align: "right" });
+    doc.text(subject.initials.split("").join("  "), cx, h - 48, {
+      align: "center",
+    });
   }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...INK);
+  doc.text("I   U   S", cx, h - 32, { align: "center" });
+
+  coverPages.add(doc.getNumberOfPages());
 }
 
 function addHeader(doc: jsPDF, heading: string) {
   const w = doc.internal.pageSize.getWidth();
-  doc.setFillColor(...INK);
-  doc.rect(0, 0, w, 14, "F");
+  drawIusSeal(doc, 18, 9.2, 5.2, INK);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(244, 244, 245);
-  doc.text(pdfSafe(heading), 14, 9);
+  doc.setFontSize(8);
+  doc.setTextColor(...INK);
+  doc.text(BRAND.name, 26, 10.5);
   doc.setFont("helvetica", "normal");
-  doc.text(BRAND.name, w - 14, 9, { align: "right" });
+  doc.setTextColor(...MUTED);
+  doc.text(pdfSafe(heading), w - 14, 10.5, { align: "right" });
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.3);
+  doc.line(14, 16, w - 14, 16);
 }
 
-function addFooter(doc: jsPDF, page: number, total: number) {
+function addFooter(doc: jsPDF, page: number) {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.2);
+  doc.line(14, h - 14, w - 14, h - 14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...MUTED);
-  doc.text(`${page} / ${total}`, w / 2, h - 10, { align: "center" });
+  doc.text(`${page}`, w / 2, h - 8, { align: "center" });
 }
 
 function writeBody(
@@ -131,7 +187,7 @@ function writeBody(
   const maxY = h - 18;
   const lineH = 5.4;
   let y = startY;
-  doc.setFont("helvetica", "normal");
+  doc.setFont("times", "normal");
   doc.setFontSize(11);
   doc.setTextColor(...INK);
   const lines = doc.splitTextToSize(pdfSafe(text || "Sin apuntes."), maxW) as string[];
@@ -140,7 +196,7 @@ function writeBody(
       doc.addPage();
       addHeader(doc, heading);
       y = 26;
-      doc.setFont("helvetica", "normal");
+      doc.setFont("times", "normal");
       doc.setFontSize(11);
       doc.setTextColor(...INK);
     }
@@ -157,7 +213,7 @@ function writeSectionTitle(doc: jsPDF, title: string, heading: string, y: number
     addHeader(doc, heading);
     y = 26;
   }
-  doc.setFont("helvetica", "bold");
+  doc.setFont("times", "bold");
   doc.setFontSize(13);
   doc.setTextColor(...INK);
   doc.text(pdfSafe(title), 14, y);
@@ -197,11 +253,7 @@ function renderSubjectBlock(
   if (subjectPages.length === 0 && audios.length === 0) return false;
 
   if (!first) doc.addPage();
-  const subtitle =
-    subjectPages.length === 1
-      ? subjectPages[0]?.title || "Hoja"
-      : `${subjectPages.length} hojas`;
-  addCover(doc, slug, subtitle);
+  addCover(doc, slug);
 
   for (const page of subjectPages) {
     const heading = `${slugName(slug)} · ${page.title || "Sin título"}`;
@@ -209,15 +261,6 @@ function renderSubjectBlock(
     addHeader(doc, heading);
     let y = 26;
     y = writeSectionTitle(doc, page.title || "Sin título", heading, y);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...MUTED);
-    doc.text(
-      pdfSafe(new Date(page.updatedAt).toLocaleString("es-VE")),
-      14,
-      y,
-    );
-    y += 8;
     writeBody(doc, page.body, heading, y);
   }
 
@@ -226,11 +269,10 @@ function renderSubjectBlock(
     doc.addPage();
     addHeader(doc, heading);
     let y = writeSectionTitle(doc, "Transcripciones", heading, 26);
-    for (const note of audios) {
-      const stamp = new Date(note.at).toLocaleString("es-VE");
-      y = writeSectionTitle(doc, stamp, heading, y);
+    audios.forEach((note, i) => {
+      y = writeSectionTitle(doc, `Nota ${i + 1}`, heading, y);
       y = writeBody(doc, note.transcript, heading, y) + 6;
-    }
+    });
   }
   return true;
 }
@@ -238,8 +280,9 @@ function renderSubjectBlock(
 function stampPages(doc: jsPDF) {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
+    if (coverPages.has(i)) continue;
     doc.setPage(i);
-    addFooter(doc, i, total);
+    addFooter(doc, i);
   }
 }
 
@@ -250,12 +293,13 @@ export function downloadCuadernoPdf(opts: {
   page?: NotebookPage;
   subjectSlug?: string | null;
 }): void {
+  coverPages.clear();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  let filename = `${BRAND.fileName}-cuaderno-${fileStamp()}.pdf`;
+  let filename = `${BRAND.fileName}-cuaderno.pdf`;
 
   if (opts.kind === "hoja" && opts.page) {
     const page = opts.page;
-    addCover(doc, page.subjectSlug, page.title || "Hoja");
+    addCover(doc, page.subjectSlug, page.title || undefined);
     const heading = `${slugName(page.subjectSlug)} · ${page.title || "Sin título"}`;
     doc.addPage();
     addHeader(doc, heading);
@@ -268,26 +312,21 @@ export function downloadCuadernoPdf(opts: {
       doc.addPage();
       addHeader(doc, heading);
       let y = writeSectionTitle(doc, "Transcripciones", heading, 26);
-      for (const note of related) {
-        y = writeSectionTitle(
-          doc,
-          new Date(note.at).toLocaleString("es-VE"),
-          heading,
-          y,
-        );
+      related.forEach((note, i) => {
+        y = writeSectionTitle(doc, `Nota ${i + 1}`, heading, y);
         y = writeBody(doc, note.transcript, heading, y) + 6;
-      }
+      });
     }
-    filename = `${BRAND.fileName}-${slugName(page.subjectSlug).replace(/\s+/g, "-")}-${fileStamp()}.pdf`;
+    filename = `${BRAND.fileName}-${fileLabel(page.subjectSlug)}.pdf`;
   } else if (opts.kind === "materia") {
     const slug = opts.subjectSlug ?? opts.page?.subjectSlug ?? null;
     const ok = renderSubjectBlock(doc, slug, opts.pages, opts.audioNotes, {
       first: true,
     });
     if (!ok) {
-      addCover(doc, slug, "Sin hojas");
+      addCover(doc, slug);
     }
-    filename = `${BRAND.fileName}-${slugName(slug).replace(/\s+/g, "-")}-${fileStamp()}.pdf`;
+    filename = `${BRAND.fileName}-${fileLabel(slug)}.pdf`;
   } else {
     let first = true;
     const slugs: Array<string | null> = [...SUBJECTS.map((s) => s.slug), null];
@@ -298,9 +337,9 @@ export function downloadCuadernoPdf(opts: {
       if (drew) first = false;
     }
     if (first) {
-      addCover(doc, null, "Vacío");
+      addCover(doc, null);
     }
-    filename = `${BRAND.fileName}-cuaderno-${fileStamp()}.pdf`;
+    filename = `${BRAND.fileName}-cuaderno.pdf`;
   }
 
   stampPages(doc);

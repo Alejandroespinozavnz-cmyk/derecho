@@ -1,7 +1,13 @@
-const SESSION_KEY = "folio4-session-v2";
+const SESSION_KEY = "ius-gate-v1";
 const HASH_KEY = "folio4-pw-hash";
-const ACTIVITY_KEY = "folio4-last-activity";
-const LEGACY_KEYS = ["folio4-session", "folio4-owner-hash"];
+const ACTIVITY_KEY = "ius-last-activity";
+const LEGACY_KEYS = [
+  "folio4-session",
+  "folio4-session-v2",
+  "folio4-owner-hash",
+  "folio4-last-activity",
+  "ius-session-v1",
+];
 
 export const DEFAULT_PASSWORD = "Ale2006**";
 
@@ -173,8 +179,8 @@ export function readSession(): GateSession | null {
     return null;
   }
   if (memorySession && Date.now() <= memorySession.until) return memorySession;
-  const { local, session } = storage();
-  const raw = readStore(session, SESSION_KEY) ?? readStore(local, SESSION_KEY);
+  const { session } = storage();
+  const raw = readStore(session, SESSION_KEY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as GateSession;
@@ -194,9 +200,8 @@ export function readSession(): GateSession | null {
 export function writeSession(session: GateSession) {
   memorySession = session;
   const value = JSON.stringify(session);
-  const { local, session: sess } = storage();
+  const { session: sess } = storage();
   writeStore(sess, SESSION_KEY, value);
-  writeStore(local, SESSION_KEY, value);
 }
 
 export function openOwnerNow(): GateSession {
@@ -235,10 +240,11 @@ export function lockNow() {
 
 export function sweepLegacyLock() {
   const { local, session } = storage();
-  for (const key of LEGACY_KEYS) {
+  for (const key of [...LEGACY_KEYS, SESSION_KEY]) {
     removeStore(local, key);
     removeStore(session, key);
   }
+  memorySession = null;
 }
 
 export function formatGuestCode(raw: string): string {

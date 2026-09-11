@@ -143,8 +143,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-surface px-3 py-5 md:flex">
-        <Link to="/" className="mb-6 px-2">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-bg px-3 py-6 md:flex">
+        <Link to="/" aria-label="IUS" className="mb-8 flex justify-center py-2">
           <BrandMark size="lg" />
         </Link>
         <PomoChip />
@@ -196,11 +196,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </a>
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-bg/90 px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-20 flex items-center border-b border-border bg-bg/90 px-4 py-3 md:hidden">
+        <div className="flex flex-1" />
         <Link to="/" aria-label="IUS">
-          <BrandMark size="sm" />
+          <BrandMark size="md" />
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-1 items-center justify-end gap-1">
           <MobilePomoChip />
           <Button
             variant="ghost"
@@ -229,7 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-bg pb-[env(safe-area-inset-bottom)] md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.to);

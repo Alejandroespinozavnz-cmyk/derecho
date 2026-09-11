@@ -61,7 +61,6 @@ export function GateGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     sweepLegacyLock();
-    if (readSession()?.token) setUnlocked(true);
   }, []);
 
   if (!unlocked) {
@@ -88,7 +87,7 @@ function FloatingPhrase() {
   }, []);
   const phrase = PHRASES[index];
   return (
-    <div key={index} className="lock-phrase mt-8 max-w-sm">
+    <div key={index} className="lock-phrase mt-6 max-w-sm text-center">
       <p className="text-sm italic text-lock-fg/80">{phrase.la}</p>
       <p className="mt-1.5 text-xs text-lock-fg/50">{phrase.es}</p>
     </div>
@@ -126,18 +125,18 @@ function LockScreen({ onUnlock }: { onUnlock: (session: GateSession) => void }) 
   };
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-lock px-5 text-lock-fg">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-y-auto bg-lock px-5 py-16 text-lock-fg">
       <img
         src="/lock-bg.jpg"
         alt=""
         className="pointer-events-none absolute inset-0 size-full object-cover"
       />
-      <div className="pointer-events-none absolute inset-0 bg-lock/75" />
-      <div className="relative z-10 flex w-full max-w-sm flex-col items-center text-center">
-        <IusSeal className="size-36 text-lock-fg" />
+      <div className="pointer-events-none absolute inset-0 bg-lock/80" />
+      <div className="relative z-10 mx-auto flex w-full max-w-xs flex-col items-center">
+        <IusSeal className="size-40 text-lock-fg" />
         <FloatingPhrase />
         <form
-          className="mt-12 grid w-full gap-3"
+          className="mt-10 grid w-full gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             void enter();

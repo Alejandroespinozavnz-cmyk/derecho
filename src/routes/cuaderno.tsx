@@ -113,10 +113,9 @@ function CuadernoPage() {
                     {p.title || "Sin título"}
                   </span>
                   <span className="text-xs text-subtle">
-                    {new Date(p.updatedAt).toLocaleDateString("es-VE")}
                     {p.subjectSlug
-                      ? ` · ${SUBJECTS.find((s) => s.slug === p.subjectSlug)?.name ?? ""}`
-                      : ""}
+                      ? SUBJECTS.find((s) => s.slug === p.subjectSlug)?.name ?? ""
+                      : "Sin materia"}
                   </span>
                 </button>
               </li>
@@ -173,7 +172,7 @@ function CuadernoPage() {
               className="min-h-[22rem]"
             />
             <p className="mt-2 text-xs text-subtle">
-              Guardado automático. El PDF lleva portada de la materia (UCAT, 4to, 2025-2026).
+              Guardado automático. El PDF lleva portada con el sello IUS.
             </p>
             <AudioTranscribe
               subjectSlug={page.subjectSlug}
